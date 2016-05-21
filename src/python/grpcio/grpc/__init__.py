@@ -27,11 +27,61 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-""""""
+"""gRPC's Python API."""
 
 import abc
+import enum
 
 import six
+
+from grpc._cython import cygrpc as _cygrpc
+
+
+@enum.unique
+class ChannelConnectivity(enum.Enum):
+  """Mirrors grpc_connectivity_state in the gRPC Core.
+
+  Attributes:
+    IDLE: The channel is idle.
+    CONNECTING: The channel is connecting.
+    READY: The channel is ready to conduct RPCs.
+    TRANSIENT_FAILURE: The channel has seen a failure from which it expects to
+      recover.
+    FATAL_FAILURE: The channel has seen a failure from which it cannot recover.
+  """
+  IDLE              = (_cygrpc.ConnectivityState.idle, 'idle')
+  CONNECTING        = (_cygrpc.ConnectivityState.connecting, 'connecting')
+  READY             = (_cygrpc.ConnectivityState.ready, 'ready')
+  TRANSIENT_FAILURE = (
+      _cygrpc.ConnectivityState.transient_failure, 'transient failure')
+  FATAL_FAILURE     = (_cygrpc.ConnectivityState.fatal_failure, 'fatal failure')
+
+
+@enum.unique
+class StatusCode(enum.Enum):
+  """Mirrors grpc_status_code in the gRPC Core."""
+  OK                  = (_cygrpc.StatusCode.ok, 'ok')
+  CANCELLED           = (_cygrpc.StatusCode.cancelled, 'cancelled')
+  UNKNOWN             = (_cygrpc.StatusCode.unknown, 'unknown')
+  INVALID_ARGUMENT    = (
+      _cygrpc.StatusCode.invalid_argument, 'invalid argument')
+  DEADLINE_EXCEEDED   = (
+      _cygrpc.StatusCode.deadline_exceeded, 'deadline exceeded')
+  NOT_FOUND           = (_cygrpc.StatusCode.not_found, 'not found')
+  ALREADY_EXISTS      = (_cygrpc.StatusCode.already_exists, 'already exists')
+  PERMISSION_DENIED   = (
+      _cygrpc.StatusCode.permission_denied, 'permission denied')
+  RESOURCE_EXHAUSTED  = (
+      _cygrpc.StatusCode.resource_exhausted, 'resource exhausted')
+  FAILED_PRECONDITION = (
+      _cygrpc.StatusCode.failed_precondition, 'failed precondition')
+  ABORTED             = (_cygrpc.StatusCode.aborted, 'aborted')
+  OUT_OF_RANGE        = (_cygrpc.StatusCode.out_of_range, 'out of range')
+  UNIMPLEMENTED       = (_cygrpc.StatusCode.unimplemented, 'unimplemented')
+  INTERNAL            = (_cygrpc.StatusCode.internal, 'internal')
+  UNAVAILABLE         = (_cygrpc.StatusCode.unavailable, 'unavailable')
+  DATA_LOSS           = (_cygrpc.StatusCode.data_loss, 'data loss')
+  UNAUTHENTICATED     = (_cygrpc.StatusCode.unauthenticated, 'unauthenticated')
 
 
 class FutureTimeoutError(Exception):
@@ -121,9 +171,9 @@ class Future(six.with_metaclass(abc.ABCMeta)):
       The return value of the computation.
 
     Raises:
-      TimeoutError: If a timeout value is passed and the computation does not
-        terminate within the allotted time.
-      CancelledError: If the computation was cancelled.
+      FutureTimeoutError: If a timeout value is passed and the computation does
+        not terminate within the allotted time.
+      FutureCancelledError: If the computation was cancelled.
       Exception: If the computation raised an exception, this call will raise
         the same exception.
     """
@@ -146,9 +196,9 @@ class Future(six.with_metaclass(abc.ABCMeta)):
         not raise an exception.
 
     Raises:
-      TimeoutError: If a timeout value is passed and the computation does not
-        terminate within the allotted time.
-      CancelledError: If the computation was cancelled.
+      FutureTimeoutError: If a timeout value is passed and the computation does
+        not terminate within the allotted time.
+      FutureCancelledError: If the computation was cancelled.
     """
     raise NotImplementedError()
 
@@ -169,9 +219,9 @@ class Future(six.with_metaclass(abc.ABCMeta)):
         computation did not raise an exception.
 
     Raises:
-      TimeoutError: If a timeout value is passed and the computation does not
-        terminate within the allotted time.
-      CancelledError: If the computation was cancelled.
+      FutureTimeoutError: If a timeout value is passed and the computation does
+        not terminate within the allotted time.
+      FutureCancelledError: If the computation was cancelled.
     """
     raise NotImplementedError()
 
@@ -186,13 +236,13 @@ class Future(six.with_metaclass(abc.ABCMeta)):
     immediately.
 
     Args:
-      fn: A callable taking a this Future object as its single parameter.
+      fn: A callable taking this Future object as its single parameter.
     """
     raise NotImplementedError()
 
 
 class RpcError(Exception):
-  """"""
+  """Raised by the gRPC library to indicate non-OK-status RPC termination."""
 
 
 class RpcContext(six.with_metaclass(abc.ABCMeta)):
@@ -210,7 +260,7 @@ class RpcContext(six.with_metaclass(abc.ABCMeta)):
     Returns:
       A nonnegative float indicating the length of allowed time in seconds
       remaining for the RPC to complete before it is considered to have timed
-      out.
+      out, or None if no deadline was specified for the RPC.
     """
     raise NotImplementedError()
 
@@ -220,11 +270,6 @@ class RpcContext(six.with_metaclass(abc.ABCMeta)):
 
     Idempotent and has no effect if the RPC has already terminated.
     """
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def disable_next_message_compression(self):
-    """Disables compression of the next message passed by the application."""
     raise NotImplementedError()
 
 
@@ -243,13 +288,13 @@ class Call(six.with_metaclass(abc.ABCMeta, RpcContext)):
     raise NotImplementedError()
 
   @abc.abstractmethod
-  def terminal_metadata(self):
-    """Accesses the terminal metadata from the service-side of the RPC.
+  def trailing_metadata(self):
+    """Accesses the trailing metadata from the service-side of the RPC.
 
     This method blocks until the value is available.
 
     Returns:
-      The terminal metadata as a sequence of pairs of bytes.
+      The trailing metadata as a sequence of pairs of bytes.
     """
     raise NotImplementedError()
 
@@ -260,7 +305,7 @@ class Call(six.with_metaclass(abc.ABCMeta, RpcContext)):
     This method blocks until the value is available.
 
     Returns:
-      The integer status code of the RPC.
+      The StatusCode value for the RPC.
     """
     raise NotImplementedError()
 
@@ -272,6 +317,221 @@ class Call(six.with_metaclass(abc.ABCMeta, RpcContext)):
 
     Returns:
       The bytes of the details of the RPC.
+    """
+    raise NotImplementedError()
+
+
+class UnaryUnaryMultiCallable(six.with_metaclass(abc.ABCMeta)):
+  """Affords invoking a unary-unary RPC."""
+
+  @abc.abstractmethod
+  def __call__(self, request, timeout=None, metadata=None, with_call=False):
+    """Synchronously invokes the underlying RPC.
+
+    Args:
+      request: The request value for the RPC.
+      timeout: An optional duration of time in seconds to allow for the RPC.
+      metadata: An optional sequence of pairs of bytes to be transmitted to the
+        service-side of the RPC.
+      with_call: Whether or not to include return a Call for the RPC in addition
+        to the response.
+
+    Returns:
+      The response value for the RPC, and a Call for the RPC if with_call was
+        set to True at invocation.
+
+    Raises:
+      RpcError: Indicating that the RPC terminated with non-OK status. The
+        raised RpcError will also be a Call for the RPC affording the RPC's
+        metadata, status code, and details.
+    """
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def future(self, request, timeout=None, metadata=None):
+    """Asynchronously invokes the underlying RPC.
+
+    Args:
+      request: The request value for the RPC.
+      timeout: An optional duration of time in seconds to allow for the RPC.
+      metadata: An optional sequence of pairs of bytes to be transmitted to the
+        service-side of the RPC.
+
+    Returns:
+      An object that is both a Call for the RPC and a Future. In the event of
+        RPC completion, the return Future's result value will be the response
+        message of the RPC. Should the event terminate with non-OK status, the
+        returned Future's exception value will be an RpcError.
+    """
+    raise NotImplementedError()
+
+
+class UnaryStreamMultiCallable(six.with_metaclass(abc.ABCMeta)):
+  """Affords invoking a unary-stream RPC."""
+
+  @abc.abstractmethod
+  def __call__(self, request, timeout=None, metadata=None):
+    """Invokes the underlying RPC.
+
+    Args:
+      request: The request value for the RPC.
+      timeout: An optional duration of time in seconds to allow for the RPC.
+      metadata: An optional sequence of pairs of bytes to be transmitted to the
+        service-side of the RPC.
+
+    Returns:
+      An object that is both a Call for the RPC and an iterator of response
+        values. Drawing response values from the returned iterator may raise
+        RpcError indicating termination of the RPC with non-OK status.
+    """
+    raise NotImplementedError()
+
+
+class StreamUnaryMultiCallable(six.with_metaclass(abc.ABCMeta)):
+  """Affords invoking a stream-unary RPC in any call style."""
+
+  @abc.abstractmethod
+  def __call__(
+      self, request_iterator, timeout=None, metadata=None, with_call=False):
+    """Synchronously invokes the underlying RPC.
+
+    Args:
+      request_iterator: An iterator that yields request values for the RPC.
+      timeout: An optional duration of time in seconds to allow for the RPC.
+      metadata: An optional sequence of pairs of bytes to be transmitted to the
+        service-side of the RPC.
+      with_call: Whether or not to include return a Call for the RPC in addition
+        to the response.
+
+    Returns:
+      The response value for the RPC, and a Call for the RPC if with_call was
+        set to True at invocation.
+
+    Raises:
+      RpcError: Indicating that the RPC terminated with non-OK status. The
+        raised RpcError will also be a Call for the RPC affording the RPC's
+        metadata, status code, and details.
+    """
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def future(self, request_iterator, timeout=None, metadata=None):
+    """Asynchronously invokes the underlying RPC.
+
+    Args:
+      request_iterator: An iterator that yields request values for the RPC.
+      timeout: An optional duration of time in seconds to allow for the RPC.
+      metadata: An optional sequence of pairs of bytes to be transmitted to the
+        service-side of the RPC.
+
+    Returns:
+      An object that is both a Call for the RPC and a Future. In the event of
+        RPC completion, the return Future's result value will be the response
+        message of the RPC. Should the event terminate with non-OK status, the
+        returned Future's exception value will be an RpcError.
+    """
+    raise NotImplementedError()
+
+
+class StreamStreamMultiCallable(six.with_metaclass(abc.ABCMeta)):
+  """Affords invoking a stream-stream RPC in any call style."""
+
+  @abc.abstractmethod
+  def __call__(self, request_iterator, timeout=None, metadata=None):
+    """Invokes the underlying RPC.
+
+    Args:
+      request_iterator: An iterator that yields request values for the RPC.
+      timeout: An optional duration of time in seconds to allow for the RPC.
+      metadata: An optional sequence of pairs of bytes to be transmitted to the
+        service-side of the RPC.
+
+    Returns:
+      An object that is both a Call for the RPC and an iterator of response
+        values. Drawing response values from the returned iterator may raise
+        RpcError indicating termination of the RPC with non-OK status.
+    """
+    raise NotImplementedError()
+
+
+class Channel(six.with_metaclass(abc.ABCMeta)):
+  """Affords RPC invocation via generic methods."""
+
+  @abc.abstractmethod
+  def subscribe(self, callback, try_to_connect=None):
+    """Subscribes to this Channel's connectivity.
+
+    Args:
+      callback: A callable to be invoked and passed a ChannelConnectivity value
+        describing this Channel's connectivity. The callable will be invoked
+        immediately upon subscription and again for every change to this
+        Channel's connectivity thereafter until it is unsubscribed or this
+        Channel object goes out of scope.
+      try_to_connect: A boolean indicating whether or not this Channel should
+        attempt to connect if it is not already connected and ready to conduct
+        RPCs.
+    """
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def unsubscribe(self, callback):
+    """Unsubscribes a callback from this Channel's connectivity.
+
+    Args:
+      callback: A callable previously registered with this Channel from having
+        been passed to its "subscribe" method.
+    """
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def unary_unary(
+      self, method, request_serializer=None, response_deserializer=None):
+    """Creates a UnaryUnaryMultiCallable for a unary-unary method.
+
+    Args:
+      method: The name of the RPC method.
+
+    Returns:
+      A UnaryUnaryMultiCallable value for the named unary-unary method.
+    """
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def unary_stream(
+      self, method, request_serializer=None, response_deserializer=None):
+    """Creates a UnaryStreamMultiCallable for a unary-stream method.
+
+    Args:
+      method: The name of the RPC method.
+
+    Returns:
+      A UnaryStreamMultiCallable value for the name unary-stream method.
+    """
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def stream_unary(
+      self, method, request_serializer=None, response_deserializer=None):
+    """Creates a StreamUnaryMultiCallable for a stream-unary method.
+
+    Args:
+      method: The name of the RPC method.
+
+    Returns:
+      A StreamUnaryMultiCallable value for the named stream-unary method.
+    """
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def stream_stream(
+      self, method, request_serializer=None, response_deserializer=None):
+    """Creates a StreamStreamMultiCallable for a stream-stream method.
+
+    Args:
+      method: The name of the RPC method.
+
+    Returns:
+      A StreamStreamMultiCallable value for the named stream-stream method.
     """
     raise NotImplementedError()
 
@@ -302,14 +562,14 @@ class ServicerContext(six.with_metaclass(abc.ABCMeta, RpcContext)):
     raise NotImplementedError()
 
   @abc.abstractmethod
-  def terminal_metadata(self, terminal_metadata):
-    """Accepts the terminal metadata value of the RPC.
+  def trailing_metadata(self, trailing_metadata):
+    """Accepts the trailing metadata value of the RPC.
 
     This method need not be called by method implementations if they have no
-    service-side terminal metadata to transmit.
+    service-side trailing metadata to transmit.
 
     Args:
-      terminal_metadata: The terminal metadata of the RPC as a sequence of pairs
+      trailing_metadata: The trailing metadata of the RPC as a sequence of pairs
         of bytes.
     """
     raise NotImplementedError()
@@ -350,286 +610,54 @@ class ServicerContext(six.with_metaclass(abc.ABCMeta, RpcContext)):
     raise NotImplementedError()
 
 
-class UnaryUnaryMultiCallable(six.with_metaclass(abc.ABCMeta)):
-  """Affords invoking a unary-unary RPC."""
+class RpcMethodHandler(six.with_metaclass(abc.ABCMeta)):
+  """An implementation of a single RPC method.
+
+  Attributes:
+    request_streaming: Whether the RPC supports exactly one request message or
+      any arbitrary number of request messages.
+    response_streaming: Whether the RPC supports exactly one response message or
+      any arbitrary number of response messages.
+    request_deserializer: A callable behavior that accepts a byte string and
+      returns an object suitable to be passed to this object's business logic,
+      or None to indicate that this object's business logic should be passed the
+      raw request bytes.
+    response_serializer: A callable behavior that accepts an object produced by
+      this object's business logic and returns a byte string, or None to
+      indicate that the byte strings produced by this object's business logic
+      should be transmitted on the wire as they are.
+    unary_unary: This object's application-specific business logic as a callable
+      value that takes a request value and a ServicerContext object and returns
+      a response value. Only non-None if both request_streaming and 
+      response_streaming are False.
+    unary_stream: This object's application-specific business logic as a
+      callable value that takes a request value and a ServicerContext object and
+      returns an iterator of response values. Only non-None if request_streaming
+      is False and response_streaming is True.
+    stream_unary: This object's application-specific business logic as a
+      callable value that takes an iterator of request values and a
+      ServicerContext object and returns a response value. Only non-None if
+      request_streaming is True and response_streaming is False.
+    stream_stream: This object's application-specific business logic as a
+      callable value that takes an iterator of request values and a
+      ServicerContext object and returns an iterator of response values. Only
+      non-None if request_streaming and response_streaming are both True.
+  """
+
+
+class GenericRpcHandler(six.with_metaclass(abc.ABCMeta)):
+  """An implementation of arbitrarily many RPC methods."""
 
   @abc.abstractmethod
-  def __call__(
-      self, request, timeout=None, metadata=None, disable_compression=False,
-      subcall_of=None, credentials=None, with_call=False):
-    """Synchronously invokes the underlying RPC.
+  def service(self, method):
+    """Services an RPC (or not).
 
     Args:
-      request: The request value for the RPC.
-      timeout: An optional duration of time in seconds to allow for the RPC.
-      metadata: An optional sequence of pairs of bytes to be transmitted to the
-        service-side of the RPC.
-      disable_compression: Whether or not to disable compression of the request.
-      subcall_of: ¯\_(ツ)_/¯ A ServicerContext I guess?
-      credentials: ¯\_(ツ)_/¯ Per-call credentials of some type?
-      with_call: Whether or not to include return a Call for the RPC in addition
-        to the response.
+      method: The name of the RPC method to be serviced.
 
     Returns:
-      The response value for the RPC, and a Call for the RPC if with_call was
-        set to True at invocation.
-
-    Raises:
-      RpcError: Indicating that the RPC terminated abnormally. The raised
-        RpcError will also be a Call for the RPC affording the RPC's metadata,
-        status code, and details.
-    """
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def future(
-      self, request, timeout=None, metadata=None, disable_compression=False,
-      subcall_of=None, credentials=None):
-    """Asynchronously invokes the underlying RPC.
-
-    Args:
-      request: The request value for the RPC.
-      timeout: An optional duration of time in seconds to allow for the RPC.
-      metadata: An optional sequence of pairs of bytes to be transmitted to the
-        service-side of the RPC.
-      disable_compression: Whether or not to disable compression of the request.
-      subcall_of: ¯\_(ツ)_/¯ A ServicerContext I guess?
-      credentials: ¯\_(ツ)_/¯ Per-call credentials of some type?
-
-    Returns:
-      An object that is both a Call for the RPC and a Future. In the event of
-        RPC completion, the return Future's result value will be the response
-        message of the RPC. In the event of RPC abortion, the returned
-        Future's exception value will be an RpcError.
-    """
-    raise NotImplementedError()
-
-
-class UnaryStreamMultiCallable(six.with_metaclass(abc.ABCMeta)):
-  """Affords invoking a unary-stream RPC."""
-
-  @abc.abstractmethod
-  def __call__(
-      self, request, timeout=None, metadata=None, disable_compression=False,
-      subcall_of=None, credentials=None):
-    """Invokes the underlying RPC.
-
-    Args:
-      request: The request value for the RPC.
-      timeout: An optional duration of time in seconds to allow for the RPC.
-      metadata: An optional sequence of pairs of bytes to be transmitted to the
-        service-side of the RPC.
-      disable_compression: Whether or not to disable compression of the request.
-      subcall_of: ¯\_(ツ)_/¯ A ServicerContext I guess?
-      credentials: ¯\_(ツ)_/¯ Per-call credentials of some type?
-
-    Returns:
-      An object that is both a Call for the RPC and an iterator of response
-        values. Drawing response values from the returned iterator may raise
-        RpcError indicating abnormal termination of the RPC.
-    """
-    raise NotImplementedError()
-
-
-class StreamUnaryMultiCallable(six.with_metaclass(abc.ABCMeta)):
-  """Affords invoking a stream-unary RPC in any call style."""
-
-  @abc.abstractmethod
-  def __call__(
-      self, request_iterator, timeout=None, metadata=None,
-      disable_compression=False, subcall_of=None, credentials=None,
-      with_call=False):
-    """Synchronously invokes the underlying RPC.
-
-    Args:
-      request_iterator: An iterator that yields request values for the RPC.
-      timeout: An optional duration of time in seconds to allow for the RPC.
-      metadata: An optional sequence of pairs of bytes to be transmitted to the
-        service-side of the RPC.
-      disable_compression: Whether or not to disable compression of the request.
-      subcall_of: ¯\_(ツ)_/¯ A ServicerContext I guess?
-      credentials: ¯\_(ツ)_/¯ Per-call credentials of some type?
-      with_call: Whether or not to include return a Call for the RPC in addition
-        to the response.
-
-    Returns:
-      The response value for the RPC, and a Call for the RPC if with_call was
-        set to True at invocation.
-
-    Raises:
-      RpcError: Indicating that the RPC terminated abnormally. The raised
-        RpcError will also be a Call for the RPC affording the RPC's metadata,
-        status code, and details.
-    """
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def future(
-      self, request_iterator, timeout=None, metadata=None,
-      disable_compression=False, subcall_of=None, credentials=None):
-    """Asynchronously invokes the underlying RPC.
-
-    Args:
-      request_iterator: An iterator that yields request values for the RPC.
-      timeout: An optional duration of time in seconds to allow for the RPC.
-      metadata: An optional sequence of pairs of bytes to be transmitted to the
-        service-side of the RPC.
-      disable_compression: Whether or not to disable compression of the request.
-      subcall_of: ¯\_(ツ)_/¯ A ServicerContext I guess?
-      credentials: ¯\_(ツ)_/¯ Per-call credentials of some type?
-
-    Returns:
-      An object that is both a Call for the RPC and a Future. In the event of
-        RPC completion, the return Future's result value will be the response
-        message of the RPC. In the event of RPC abortion, the returned
-        Future's exception value will be an RpcError.
-    """
-    raise NotImplementedError()
-
-
-class StreamStreamMultiCallable(six.with_metaclass(abc.ABCMeta)):
-  """Affords invoking a stream-stream RPC in any call style."""
-
-  @abc.abstractmethod
-  def __call__(
-      self, request_iterator, timeout=None, metadata=None,
-      disable_compression=False, subcall_of=None, credentials=None):
-    """Invokes the underlying RPC.
-
-    Args:
-      request_iterator: An iterator that yields request values for the RPC.
-      timeout: An optional duration of time in seconds to allow for the RPC.
-      metadata: An optional sequence of pairs of bytes to be transmitted to the
-        service-side of the RPC.
-      disable_compression: Whether or not to disable compression of the request.
-      subcall_of: ¯\_(ツ)_/¯ A ServicerContext I guess?
-      credentials: ¯\_(ツ)_/¯ Per-call credentials of some type?
-
-    Returns:
-      An object that is both a Call for the RPC and an iterator of response
-        values. Drawing response values from the returned iterator may raise
-        RpcError indicating abnormal termination of the RPC.
-    """
-    raise NotImplementedError()
-
-
-class Channel(six.with_metaclass(abc.ABCMeta)):
-  """Affords RPC invocation via generic methods."""
-
-  @abc.abstractmethod
-  def subscribe(self, callback, try_to_connect=None):
-    """Subscribes to this Channel's connectivity.
-
-    Args:
-      callback: A callable to be invoked and passed an integer value describing
-        this Channel's connectivity. The callable will be invoked immediately
-        upon subscription and again for every change to this Channel's
-        connectivity thereafter until it is unsubscribed.
-      try_to_connect: A boolean indicating whether or not this Channel should
-        attempt to connect if it is not already connected and ready to conduct
-        RPCs.
-    """
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def unsubscribe(self, callback):
-    """Unsubscribes a callback from this Channel's connectivity.
-
-    Args:
-      callback: A callable previously registered with this Channel from having
-        been passed to its "subscribe" method.
-    """
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def blocking_unary_unary(
-      self, method, request, timeout=None, metadata=None,
-      disable_compression=False, subcall_of=None, credentials=None,
-      with_call=False):
-    """"""
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def future_unary_unary(
-      self, method, request, timeout=None, metadata=None,
-      disable_compression=False, subcall_of=None, credentials=None):
-    """"""
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def inline_unary_stream(
-      self, method, request, timeout=None, metadata=None,
-      disable_compression=False, subcall_of=None, credentials=None):
-    """"""
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def blocking_stream_unary(
-      self, method, request_iterator, timeout=None, metadata=None,
-      disable_compression=False, subcall_of=None, credentials=None,
-      with_call=False):
-    """"""
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def future_stream_unary(
-      self, method, request_iterator, timeout=None, metadata=None,
-      disable_compression=False, subcall_of=None, credentials=None):
-    """"""
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def inline_stream_stream(
-      self, method, request_iterator, timeout=None, metadata=None,
-      disable_compression=False, subcall_of=None, credentials=None):
-    """"""
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def unary_unary(self, method):
-    """Creates a UnaryUnaryMultiCallable for a unary-unary method.
-
-    Args:
-      method: The method identifier of the RPC.
-
-    Returns:
-      A UnaryUnaryMultiCallable value for the named unary-unary method.
-    """
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def unary_stream(self, method):
-    """Creates a UnaryStreamMultiCallable for a unary-stream method.
-
-    Args:
-      method: The method identifier of the RPC.
-
-    Returns:
-      A UnaryStreamMultiCallable value for the name unary-stream method.
-    """
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def stream_unary(self, method):
-    """Creates a StreamUnaryMultiCallable for a stream-unary method.
-
-    Args:
-      method: The method identifier of the RPC.
-
-    Returns:
-      A StreamUnaryMultiCallable value for the named stream-unary method.
-    """
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def stream_stream(self, method):
-    """Creates a StreamStreamMultiCallable for a stream-stream method.
-
-    Args:
-      method: The method identifier of the RPC.
-
-    Returns:
-      A StreamStreamMultiCallable value for the named stream-stream method.
+      An RpcMethodHandler with which the RPC may be serviced, or None to
+        indicate that this object will not be servicing the RPC.
     """
     raise NotImplementedError()
 
@@ -638,8 +666,15 @@ class Server(six.with_metaclass(abc.ABCMeta)):
   """Services RPCs."""
 
   @abc.abstractmethod
-  def add_service(self, service):
-    """Something something https://github.com/grpc/grpc/issues/4418?"""
+  def add_generic_rpc_handlers(self, generic_rpc_handlers):
+    """Registers GenericRpcHandlers with this Server.
+
+    This method is only safe to call before the server is started.
+
+    Args:
+      generic_rpc_handlers: Some number of GenericRpcHandlers that will be used
+        to service RPCs after this Server is started.
+    """
     raise NotImplementedError()
 
   @abc.abstractmethod
@@ -680,13 +715,13 @@ class Server(six.with_metaclass(abc.ABCMeta)):
     This method may be called at any time and is idempotent. Passing a smaller
     grace value than has been passed in a previous call will have the effect of
     stopping the Server sooner. Passing a larger grace value than has been
-    passed in a previous call will not have the effect of stopping the sooner
+    passed in a previous call will not have the effect of stopping the server
     later.
 
     Args:
       grace: A duration of time in seconds to allow existing RPCs to complete
-        before being aborted by this Server's stopping. May be zero for
-        immediate abortion of all in-progress RPCs.
+        before being aborted by this Server's stopping. If None, this method
+        will block until the server is completely stopped.
 
     Returns:
       A threading.Event that will be set when this Server has completely
@@ -702,41 +737,48 @@ class Server(six.with_metaclass(abc.ABCMeta)):
 def channel_ready_future(channel):
   """Creates a Future tracking when a Channel is ready.
 
-  Cancelling the returned Future does not tell the given
-  Channel to abandon attempts it may have been making to
-  connect; cancelling merely deactivates the return Future's
-  subscription to the given Channel's connectivity.
+  Cancelling the returned Future does not tell the given Channel to abandon
+  attempts it may have been making to connect; cancelling merely deactivates the
+  returned Future's subscription to the given Channel's connectivity.
 
   Args:
     channel: A Channel.
 
   Returns:
-    A Future that matures when the given Channel has connectivity ¯\_(ツ)_/¯ ("2"?)
+    A Future that matures when the given Channel has connectivity
+      ChannelConnectivity.READY.
   """
-  raise NotImplementedError
+  from grpc import _utilities
+  return _utilities.channel_ready_future(channel)
 
 
-def insecure_channel(address, options):
+def insecure_channel(target):
   """Creates an insecure Channel to a server.
 
   Args:
-    address: ¯\_(ツ)_/¯ Should this be named "target"?
-    options: ¯\_(ツ)_/¯
+    target: The target to which to connect.
 
   Returns:
     A Channel to the remote host through which RPCs may be conducted.
   """
-  raise NotImplementedError
+  from grpc import _channel
+  return _channel.insecure_channel(target)
 
 
-def server(service_implementations, options=None):
+def server(generic_rpc_handlers, thread_pool, options=None):
   """Creates a Server with which RPCs can be serviced.
 
+  The GenericRpcHandlers passed to this function needn't be the only
+  GenericRpcHandlers that will be used to serve RPCs; others may be added later
+  by calling add_generic_rpc_handlers any time before the returned server is
+  started.
+
   Args:
-    service_implementations: ¯\_(ツ)_/¯
-    options: ¯\_(ツ)_/¯ (thread pool?)
+    generic_rpc_handlers: Some number of GenericRpcHandlers that will be used
+        to service RPCs after this Server is started.
 
   Returns:
     A Server with which RPCs can be serviced.
   """
-  raise NotImplementedError
+  from grpc import _server
+  return _server.Server(generic_rpc_handlers, thread_pool)
