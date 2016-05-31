@@ -64,6 +64,7 @@ class PauseFailControl(Control):
 
   def __init__(self):
     self._condition = threading.Condition()
+    self._pause = False
     self._paused = False
     self._fail = False
 
@@ -72,18 +73,30 @@ class PauseFailControl(Control):
       if self._fail:
         raise Defect()
 
-      while self._paused:
+      while self._pause:
+        self._paused = True
+        self._condition.notify_all()
         self._condition.wait()
+      self._paused = False
 
   @contextlib.contextmanager
   def pause(self):
     """Pauses code under control while controlling code is in context."""
     with self._condition:
-      self._paused = True
+      self._pause = True
     yield
     with self._condition:
-      self._paused = False
+      self._pause = False
       self._condition.notify_all()
+
+  def paused(self):
+    """Blocks controlling code until the code under control is paused.
+
+    May only be called within the context of a pause call.
+    """
+    with self._condition:
+      while not self._paused:
+        self._condition.wait()
 
   @contextlib.contextmanager
   def fail(self):

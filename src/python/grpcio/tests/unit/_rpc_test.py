@@ -29,13 +29,10 @@
 
 """Test of gRPC Python's application-layer API."""
 
-import abc
 import itertools
 import threading
 import unittest
 from concurrent import futures
-
-import six
 
 import grpc
 from grpc.framework.foundation import logging_pool
@@ -81,6 +78,8 @@ class _Handler(object):
 
   def handle_unary_unary(self, request, servicer_context):
     self._control.control()
+    if servicer_context is not None:
+      servicer_context.set_trailing_metadata(((b'testkey', b'testvalue',),))
     return request
 
   def handle_unary_stream(self, request, servicer_context):
@@ -88,6 +87,8 @@ class _Handler(object):
       self._control.control()
       yield request
     self._control.control()
+    if servicer_context is not None:
+      servicer_context.set_trailing_metadata(((b'testkey', b'testvalue',),))
 
   def handle_stream_unary(self, request_iterator, servicer_context):
     if servicer_context is not None:
@@ -98,10 +99,14 @@ class _Handler(object):
       self._control.control()
       response_elements.append(request)
     self._control.control()
+    if servicer_context is not None:
+      servicer_context.set_trailing_metadata(((b'testkey', b'testvalue',),))
     return b''.join(response_elements)
 
   def handle_stream_stream(self, request_iterator, servicer_context):
     self._control.control()
+    if servicer_context is not None:
+      servicer_context.set_trailing_metadata(((b'testkey', b'testvalue',),))
     for request in request_iterator:
       self._control.control()
       yield request
@@ -180,6 +185,13 @@ class RPCTest(unittest.TestCase):
 
     self._channel = grpc.insecure_channel(b'localhost:%d' % port)
 
+  # TODO(nathaniel): Why is this necessary, and only in some development
+  # environments?
+  def tearDown(self):
+    del self._channel
+    del self._server
+    del self._server_pool
+
   def testUnrecognizedMethod(self):
     request = b'abc'
 
@@ -189,38 +201,38 @@ class RPCTest(unittest.TestCase):
     self.assertEqual(
         grpc.StatusCode.UNIMPLEMENTED, exception_context.exception.code())
 
-  def testSuccessfulBlockingUnaryRequestUnaryResponse(self):
+  def testSuccessfulUnaryRequestBlockingUnaryResponse(self):
     request = b'\x07\x08'
     expected_response = self._handler.handle_unary_unary(request, None)
 
     multi_callable = _unary_unary_multi_callable(self._channel)
     response = multi_callable(
         request, metadata=(
-            (b'test', b'SuccessfulBlockingUnaryRequestUnaryResponse'),))
+            (b'test', b'SuccessfulUnaryRequestBlockingUnaryResponse'),))
 
     self.assertEqual(expected_response, response)
 
-  def testSuccessfulBlockingUnaryRequestUnaryResponseWithCall(self):
+  def testSuccessfulUnaryRequestBlockingUnaryResponseWithCall(self):
     request = b'\x07\x08'
     expected_response = self._handler.handle_unary_unary(request, None)
 
     multi_callable = _unary_unary_multi_callable(self._channel)
     response, call = multi_callable(
         request, metadata=(
-            (b'test', b'SuccessfulBlockingUnaryRequestUnaryResponseWithCall'),),
+            (b'test', b'SuccessfulUnaryRequestBlockingUnaryResponseWithCall'),),
         with_call=True)
 
     self.assertEqual(expected_response, response)
     self.assertIs(grpc.StatusCode.OK, call.code())
 
-  def testSuccessfulFutureUnaryRequestUnaryResponse(self):
+  def testSuccessfulUnaryRequestFutureUnaryResponse(self):
     request = b'\x07\x08'
     expected_response = self._handler.handle_unary_unary(request, None)
 
     multi_callable = _unary_unary_multi_callable(self._channel)
     response_future = multi_callable.future(
         request, metadata=(
-            (b'test', b'SuccessfulFutureUnaryRequestUnaryResponse'),))
+            (b'test', b'SuccessfulUnaryRequestFutureUnaryResponse'),))
     response = response_future.result()
 
     self.assertEqual(expected_response, response)
@@ -237,7 +249,7 @@ class RPCTest(unittest.TestCase):
 
     self.assertSequenceEqual(expected_responses, responses)
 
-  def testSuccessfulBlockingStreamRequestUnaryResponse(self):
+  def testSuccessfulStreamRequestBlockingUnaryResponse(self):
     requests = tuple(b'\x07\x08' for _ in range(test_constants.STREAM_LENGTH))
     expected_response = self._handler.handle_stream_unary(iter(requests), None)
     request_iterator = iter(requests)
@@ -245,11 +257,11 @@ class RPCTest(unittest.TestCase):
     multi_callable = _stream_unary_multi_callable(self._channel)
     response = multi_callable(
         request_iterator,
-        metadata=((b'test', b'SuccessfulBlockingStreamRequestUnaryResponse'),))
+        metadata=((b'test', b'SuccessfulStreamRequestBlockingUnaryResponse'),))
 
     self.assertEqual(expected_response, response)
 
-  def testSuccessfulBlockingStreamRequestUnaryResponseWithCall(self):
+  def testSuccessfulStreamRequestBlockingUnaryResponseWithCall(self):
     requests = tuple(b'\x07\x08' for _ in range(test_constants.STREAM_LENGTH))
     expected_response = self._handler.handle_stream_unary(iter(requests), None)
     request_iterator = iter(requests)
@@ -258,13 +270,13 @@ class RPCTest(unittest.TestCase):
     response, call = multi_callable(
         request_iterator,
         metadata=(
-            (b'test', b'SuccessfulBlockingStreamRequestUnaryResponseWithCall'),
+            (b'test', b'SuccessfulStreamRequestBlockingUnaryResponseWithCall'),
         ), with_call=True)
 
     self.assertEqual(expected_response, response)
     self.assertIs(grpc.StatusCode.OK, call.code())
 
-  def testSuccessfulFutureStreamRequestUnaryResponse(self):
+  def testSuccessfulStreamRequestFutureUnaryResponse(self):
     requests = tuple(b'\x07\x08' for _ in range(test_constants.STREAM_LENGTH))
     expected_response = self._handler.handle_stream_unary(iter(requests), None)
     request_iterator = iter(requests)
@@ -273,7 +285,7 @@ class RPCTest(unittest.TestCase):
     response_future = multi_callable.future(
         request_iterator,
         metadata=(
-            (b'test', b'SuccessfulFutureStreamRequestUnaryResponse'),))
+            (b'test', b'SuccessfulStreamRequestFutureUnaryResponse'),))
     response = response_future.result()
 
     self.assertEqual(expected_response, response)
@@ -349,7 +361,7 @@ class RPCTest(unittest.TestCase):
 
   def testWaitingForSomeButNotAllConcurrentFutureInvocations(self):
     pool = logging_pool.pool(test_constants.THREAD_CONCURRENCY)
-    request = b'\x07\x08'
+    request = b'\x67\x68'
     expected_response = self._handler.handle_unary_unary(request, None)
     response_futures = [None] * test_constants.THREAD_CONCURRENCY
     lock = threading.Lock()
@@ -383,7 +395,6 @@ class RPCTest(unittest.TestCase):
     with lock:
       test_is_running_cell[0] = False
 
-  @unittest.skip('TODO(https://github.com/grpc/grpc/issues/6676): unskip!')
   def testConsumingOneStreamResponseUnaryRequest(self):
     request = b'\x57\x38'
 
@@ -394,7 +405,6 @@ class RPCTest(unittest.TestCase):
             (b'test', b'ConsumingOneStreamResponseUnaryRequest'),))
     next(response_iterator)
 
-  @unittest.skip('TODO(https://github.com/grpc/grpc/issues/6676): unskip!')
   def testConsumingSomeButNotAllStreamResponsesUnaryRequest(self):
     request = b'\x57\x38'
 
@@ -406,7 +416,6 @@ class RPCTest(unittest.TestCase):
     for _ in range(test_constants.STREAM_LENGTH // 2):
       next(response_iterator)
 
-  @unittest.skip('TODO(https://github.com/grpc/grpc/issues/6676): unskip!')
   def testConsumingSomeButNotAllStreamResponsesStreamRequest(self):
     requests = tuple(b'\x67\x88' for _ in range(test_constants.STREAM_LENGTH))
     request_iterator = iter(requests)
@@ -434,6 +443,11 @@ class RPCTest(unittest.TestCase):
       with self.assertRaises(StopIteration):
         next(response_iterator)
 
+    self.assertIsNotNone(response_iterator.initial_metadata())
+    self.assertIs(grpc.StatusCode.OK, response_iterator.code())
+    self.assertIsNotNone(response_iterator.details())
+    self.assertIsNotNone(response_iterator.trailing_metadata())
+
   def testCancelledUnaryRequestUnaryResponse(self):
     request = b'\x07\x17'
 
@@ -457,12 +471,16 @@ class RPCTest(unittest.TestCase):
       response_iterator = multi_callable(
           request,
           metadata=((b'test', b'CancelledUnaryRequestStreamResponse'),))
+      self._control.paused()
       response_iterator.cancel()
 
     with self.assertRaises(grpc.RpcError) as exception_context:
       next(response_iterator)
     self.assertIs(grpc.StatusCode.CANCELLED, exception_context.exception.code())
+    self.assertIsNotNone(response_iterator.initial_metadata())
     self.assertIs(grpc.StatusCode.CANCELLED, response_iterator.code())
+    self.assertIsNotNone(response_iterator.details())
+    self.assertIsNotNone(response_iterator.trailing_metadata())
 
   def testCancelledStreamRequestUnaryResponse(self):
     requests = tuple(b'\x07\x08' for _ in range(test_constants.STREAM_LENGTH))
@@ -473,12 +491,16 @@ class RPCTest(unittest.TestCase):
       response_future = multi_callable.future(
           request_iterator,
           metadata=((b'test', b'CancelledStreamRequestUnaryResponse'),))
+      self._control.paused()
       response_future.cancel()
 
     self.assertTrue(response_future.cancelled())
     with self.assertRaises(grpc.FutureCancelledError):
       response_future.result()
+    self.assertIsNotNone(response_future.initial_metadata())
     self.assertIs(grpc.StatusCode.CANCELLED, response_future.code())
+    self.assertIsNotNone(response_future.details())
+    self.assertIsNotNone(response_future.trailing_metadata())
 
   def testCancelledStreamRequestStreamResponse(self):
     requests = tuple(b'\x07\x08' for _ in range(test_constants.STREAM_LENGTH))
@@ -491,10 +513,12 @@ class RPCTest(unittest.TestCase):
           metadata=((b'test', b'CancelledStreamRequestStreamResponse'),))
       response_iterator.cancel()
 
-    with self.assertRaises(grpc.RpcError) as exception_context:
+    with self.assertRaises(grpc.RpcError):
       next(response_iterator)
-    self.assertIs(grpc.StatusCode.CANCELLED, exception_context.exception.code())
+    self.assertIsNotNone(response_iterator.initial_metadata())
     self.assertIs(grpc.StatusCode.CANCELLED, response_iterator.code())
+    self.assertIsNotNone(response_iterator.details())
+    self.assertIsNotNone(response_iterator.trailing_metadata())
 
   def testExpiredUnaryRequestBlockingUnaryResponse(self):
     request = b'\x07\x17'
@@ -507,8 +531,11 @@ class RPCTest(unittest.TestCase):
             metadata=((b'test', b'ExpiredUnaryRequestBlockingUnaryResponse'),),
             with_call=True)
 
+    self.assertIsNotNone(exception_context.exception.initial_metadata())
     self.assertIs(
         grpc.StatusCode.DEADLINE_EXCEEDED, exception_context.exception.code())
+    self.assertIsNotNone(exception_context.exception.details())
+    self.assertIsNotNone(exception_context.exception.trailing_metadata())
 
   def testExpiredUnaryRequestFutureUnaryResponse(self):
     request = b'\x07\x17'
@@ -522,9 +549,18 @@ class RPCTest(unittest.TestCase):
       response_future.add_done_callback(callback)
       value_passed_to_callback = callback.value()
 
-    self.assertIs(grpc.StatusCode.DEADLINE_EXCEEDED, response_future.code())
-    self.assertIsInstance(response_future.exception(), grpc.RpcError)
     self.assertIs(response_future, value_passed_to_callback)
+    self.assertIsNotNone(response_future.initial_metadata())
+    self.assertIs(grpc.StatusCode.DEADLINE_EXCEEDED, response_future.code())
+    self.assertIsNotNone(response_future.details())
+    self.assertIsNotNone(response_future.trailing_metadata())
+    with self.assertRaises(grpc.RpcError) as exception_context:
+      response_future.result()
+    self.assertIs(
+        grpc.StatusCode.DEADLINE_EXCEEDED, exception_context.exception.code())
+    self.assertIsInstance(response_future.exception(), grpc.RpcError)
+    self.assertIs(
+        grpc.StatusCode.DEADLINE_EXCEEDED, response_future.exception().code())
 
   def testExpiredUnaryRequestStreamResponse(self):
     request = b'\x07\x19'
@@ -552,8 +588,11 @@ class RPCTest(unittest.TestCase):
             request_iterator, timeout=test_constants.SHORT_TIMEOUT,
             metadata=((b'test', b'ExpiredStreamRequestBlockingUnaryResponse'),))
 
+    self.assertIsNotNone(exception_context.exception.initial_metadata())
     self.assertIs(
         grpc.StatusCode.DEADLINE_EXCEEDED, exception_context.exception.code())
+    self.assertIsNotNone(exception_context.exception.details())
+    self.assertIsNotNone(exception_context.exception.trailing_metadata())
 
   def testExpiredStreamRequestFutureUnaryResponse(self):
     requests = tuple(b'\x07\x18' for _ in range(test_constants.STREAM_LENGTH))
@@ -575,6 +614,10 @@ class RPCTest(unittest.TestCase):
         grpc.StatusCode.DEADLINE_EXCEEDED, exception_context.exception.code())
     self.assertIsInstance(response_future.exception(), grpc.RpcError)
     self.assertIs(response_future, value_passed_to_callback)
+    self.assertIsNotNone(response_future.initial_metadata())
+    self.assertIs(grpc.StatusCode.DEADLINE_EXCEEDED, response_future.code())
+    self.assertIsNotNone(response_future.details())
+    self.assertIsNotNone(response_future.trailing_metadata())
 
   def testExpiredStreamRequestStreamResponse(self):
     requests = tuple(b'\x67\x18' for _ in range(test_constants.STREAM_LENGTH))

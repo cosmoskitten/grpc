@@ -51,6 +51,8 @@ PAYLOAD_SIZE = 256 * 1024 + 17
 
 # The parallelism to use in tests of parallel RPCs.
 PARALLELISM = 200
+THREAD_CONCURRENCY = 25
+RPC_CONCURRENCY = PARALLELISM
 
 # The size of thread pools to use in tests.
 POOL_SIZE = 10

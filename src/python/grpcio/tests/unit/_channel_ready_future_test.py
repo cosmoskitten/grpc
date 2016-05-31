@@ -81,7 +81,7 @@ class ChannelReadyFutureTest(unittest.TestCase):
     server = _server.Server((), futures.ThreadPoolExecutor(max_workers=0))
     port = server.add_insecure_port('[::]:0')
     server.start()
-    channel = _channel.insecure_channel('localhost:{}'.format(port))
+    channel = grpc.insecure_channel('localhost:{}'.format(port))
     callback = _Callback()
 
     ready_future = grpc.channel_ready_future(channel)

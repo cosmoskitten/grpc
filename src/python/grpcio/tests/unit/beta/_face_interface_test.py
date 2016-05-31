@@ -36,6 +36,7 @@ import six
 
 from grpc.beta import implementations
 from grpc.beta import interfaces
+
 from tests.unit import resources
 from tests.unit import test_common as grpc_test_common
 from tests.unit.beta import test_utilities
@@ -43,7 +44,7 @@ from tests.unit.framework.common import test_constants
 from tests.unit.framework.interfaces.face import test_cases
 from tests.unit.framework.interfaces.face import test_interfaces
 
-_SERVER_HOST_OVERRIDE = 'foo.test.google.fr'
+_SERVER_HOST_OVERRIDE = b'foo.test.google.fr'
 
 
 class _SerializationBehaviors(
@@ -91,12 +92,12 @@ class _Implementation(test_interfaces.Implementation):
         method_implementations, options=server_options)
     server_credentials = implementations.ssl_server_credentials(
         [(resources.private_key(), resources.certificate_chain(),),])
-    port = server.add_secure_port('[::]:0', server_credentials)
+    port = server.add_secure_port(b'[::]:0', server_credentials)
     server.start()
     channel_credentials = implementations.ssl_channel_credentials(
         resources.test_root_certificates())
     channel = test_utilities.not_really_secure_channel(
-        'localhost', port, channel_credentials, _SERVER_HOST_OVERRIDE)
+        b'localhost', port, channel_credentials, _SERVER_HOST_OVERRIDE)
     stub_options = implementations.stub_options(
         request_serializers=serialization_behaviors.request_serializers,
         response_deserializers=serialization_behaviors.response_deserializers,
