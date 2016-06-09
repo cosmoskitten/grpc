@@ -38,6 +38,8 @@ import "src/proto/grpc/testing/messages.proto";
 
 package grpc.testing;
 
+option objc_class_prefix = "RMT";
+
 // A simple service to test the various types of RPCs and experiment with
 // performance with various types of payload.
 service TestService {

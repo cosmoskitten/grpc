@@ -39,10 +39,10 @@
 #import <GRPCClient/GRPCCall+Tests.h>
 #import <GRPCClient/GRPCCall+Cronet.h>
 #import <ProtoRPC/ProtoRPC.h>
-#import <RemoteTest/Empty.pbobjc.h>
-#import <RemoteTest/Messages.pbobjc.h>
-#import <RemoteTest/Test.pbobjc.h>
-#import <RemoteTest/Test.pbrpc.h>
+#import <RemoteTest/src/proto/grpc/testing/Empty.pbobjc.h>
+#import <RemoteTest/src/proto/grpc/testing/Messages.pbobjc.h>
+#import <RemoteTest/src/proto/grpc/testing/Test.pbobjc.h>
+#import <RemoteTest/src/proto/grpc/testing/Test.pbrpc.h>
 #import <RxLibrary/GRXBufferedPipe.h>
 #import <RxLibrary/GRXWriter+Immediate.h>
 

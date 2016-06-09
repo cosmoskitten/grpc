@@ -34,6 +34,8 @@ syntax = "proto3";
 
 package grpc.testing;
 
+option objc_class_prefix = "RMT";
+
 // The type of payload that should be returned.
 enum PayloadType {
   // Compressable text format.
