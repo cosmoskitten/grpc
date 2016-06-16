@@ -35,6 +35,8 @@ try:
   from mako import exceptions
 except (ImportError):
   pass  # Mako not installed but it is ok. 
+import glob
+import json
 import os
 import string
 import xml.etree.cElementTree as ET
@@ -118,3 +120,48 @@ def render_interop_html_report(
     print(exceptions.text_error_template().render())
     raise
 
+
+def render_perf_html_report(report_dir):
+  """Generate a simple HTML report for the perf tests."""
+  template_file = 'tools/run_tests/perf_html_report.template'
+  try:
+    mytemplate = Template(filename=template_file, format_exceptions=True)
+  except NameError:
+    print 'Mako template is not installed. Skipping HTML report generation.'
+    return
+  except IOError as e:
+    print 'Failed to find the template %s: %s' % (template_file, e)
+    return
+
+  resultset = {}
+  langs = []
+  for result_file in glob.glob(os.path.join(report_dir, '*.json')):
+    with open(result_file, 'r') as f:
+      scenario_result = json.loads(f.read())
+      name = scenario_result['scenario']['name']
+      divider = name.find('_')
+      lang = name[:divider]
+      if lang not in langs:
+        langs.append(lang)
+      test_case = name[divider+1:]
+      if 'ping_pong' in test_case:
+        latency50 = scenario_result['summary']['latency50']
+        latency99 = scenario_result['summary']['latency99']
+        summary = {lang: {'latency50': latency50, 'latency99': latency99}}
+      else:
+        summary = {lang: {'qps': scenario_result['summary']['qps']}}
+      if test_case not in resultset:
+        resultset[test_case] = summary
+      resultset[test_case].update(summary)
+
+  print resultset
+
+  args = {'langs': sorted(langs), 'resultset': resultset}
+
+  html_file_path = os.path.join(report_dir, 'index.html')
+  try:
+    with open(html_file_path, 'w') as output_file:
+      mytemplate.render_context(Context(output_file, **args))
+  except:
+    print(exceptions.text_error_template().render())
+    raise

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Performance Test Result</title></head>
+<body>
+
+  <table style="width:100%" border="1">
+  <tr bgcolor="#00BFFF">
+  <th>Languages &#9658;<br/>Test Cases &#9660;</th>
+  % for lang in langs:
+    <th>${lang}</th>
+  % endfor
+  </tr>
+  <% sorted_test_cases = sorted(resultset.keys()) %>
+  % for test_case in sorted_test_cases:
+    <tr><td><b>${test_case}</b></td>
+    % for lang in langs:
+      % if lang in resultset[test_case]:
+        <% result = resultset[test_case][lang] %>
+        <td>
+        % for k, v in result.iteritems():
+          ${k}: ${v}<br>
+        % endfor
+        </td>
+      % else:
+        <td>Not implemented</td>
+      % endif
+    % endfor
+    </tr> 
+  % endfor
+  </table>
+
+</body>
+</html>
