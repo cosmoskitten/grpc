@@ -52,6 +52,8 @@
 
 #define LOG_TEST(x) gpr_log(GPR_INFO, "%s", #x)
 
+extern int grpc_tcp_server_posix_expand_wildcard_addr;
+
 static gpr_mu *g_mu;
 static grpc_pollset *g_pollset;
 static int g_nconnects = 0;
@@ -338,8 +340,16 @@ int main(int argc, char **argv) {
   test_no_op_with_start();
   test_no_op_with_port();
   test_no_op_with_port_and_start();
+
+  /* Test connect without expanding wildcard addresses (the default). */
   test_connect(1);
   test_connect(10);
+
+  /* Test connect with expanded wildcard addresses. */
+  grpc_tcp_server_posix_expand_wildcard_addr = 1;
+  test_connect(1);
+  test_connect(10);
+  grpc_tcp_server_posix_expand_wildcard_addr = 0;
 
   grpc_closure_init(&destroyed, destroy_pollset, g_pollset);
   grpc_pollset_shutdown(&exec_ctx, g_pollset, &destroyed);
