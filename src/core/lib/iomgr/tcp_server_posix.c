@@ -483,7 +483,7 @@ static grpc_error *add_socket_to_server(grpc_tcp_server *s, int fd,
 }
 
 /* If successful, add a listener to s for addr, set *dsmode for the socket, and
- * return the *listener. */
+   return the *listener. */
 static grpc_error *add_addr_to_server(grpc_tcp_server *s,
                                       const struct sockaddr *addr,
                                       size_t addr_len, unsigned port_index,
@@ -664,6 +664,8 @@ grpc_error *grpc_tcp_server_add_port(grpc_tcp_server *s, const void *addr,
         goto done;
       } else {
         GRPC_LOG_IF_ERROR("Failed to enumerate interfaces", errs[0]);
+        GRPC_ERROR_UNREF(errs[0]);
+        errs[0] = GRPC_ERROR_NONE;
         /* Fallback to wildcard listener. */
       }
     }
