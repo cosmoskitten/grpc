@@ -49,7 +49,7 @@ sys.path.insert(0, os.path.abspath('.'))
 # ourselves in w.r.t. the multitude of operating systems this ought to build on.
 # By default we assume a GCC-like compiler.
 EXTRA_COMPILE_ARGS = shlex.split(os.environ.get('GRPC_PYTHON_CFLAGS',
-                                                '-fno-wrapv -frtti -std=c++11'))
+                                                '-fno-wrapv -frtti'))
 EXTRA_LINK_ARGS = shlex.split(os.environ.get('GRPC_PYTHON_LDFLAGS',
                                              '-lpthread'))
 
@@ -95,7 +95,10 @@ def protoc_ext_module():
           protoc_lib_deps.CC_INCLUDE,
       ],
       language='c++',
-      define_macros=[('HAVE_PTHREAD', 1)],
+      define_macros=[
+          ('HAVE_PTHREAD', 1,),
+          ('GOOGLE_PROTOBUF_NO_THREADLOCAL', 1,),
+      ],
       extra_compile_args=EXTRA_COMPILE_ARGS,
       extra_link_args=EXTRA_LINK_ARGS,
   )

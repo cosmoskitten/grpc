@@ -39,7 +39,6 @@
 #include <memory>
 #include <ostream>
 #include <sstream>
-#include <tuple>
 #include <vector>
 
 #include "src/compiler/config.h"
@@ -57,7 +56,6 @@ using grpc::protobuf::io::CodedOutputStream;
 using grpc::protobuf::io::Printer;
 using grpc::protobuf::io::StringOutputStream;
 using grpc::protobuf::io::ZeroCopyOutputStream;
-using std::initializer_list;
 using std::make_pair;
 using std::map;
 using std::pair;
@@ -65,6 +63,8 @@ using std::replace;
 using std::vector;
 
 namespace grpc_python_generator {
+
+typedef std::map<grpc::string, grpc::string> StringMap;
 
 GeneratorConfiguration::GeneratorConfiguration()
     : grpc_package_root("grpc"), beta_package_root("grpc.beta") {}
@@ -89,41 +89,23 @@ bool PythonGrpcGenerator::Generate(
     return false;
   }
 
-  std::unique_ptr<ZeroCopyOutputStream> output(
-      context->OpenForInsert(file_name, "module_scope"));
-  CodedOutputStream coded_out(output.get());
-  bool success = false;
-  grpc::string code = "";
-  tie(success, code) = grpc_python_generator::GetServices(file, config_);
-  if (success) {
-    coded_out.WriteRaw(code.data(), code.size());
-    return true;
-  } else {
-    return false;
+  ZeroCopyOutputStream* output =
+      context->OpenForInsert(file_name, "module_scope");
+  CodedOutputStream coded_out(output);
+  std::pair<bool, grpc::string> success_and_code =
+      grpc_python_generator::GetServices(file, config_);
+  if (success_and_code.first) {
+    coded_out.WriteRaw(success_and_code.second.data(),
+                       success_and_code.second.size());
   }
+  delete output;
+  return success_and_code.first;
 }
 
 namespace {
 //////////////////////////////////
 // BEGIN FORMATTING BOILERPLATE //
 //////////////////////////////////
-
-// Converts an initializer list of the form { key0, value0, key1, value1, ... }
-// into a map of key* to value*. Is merely a readability helper for later code.
-map<grpc::string, grpc::string> ListToDict(
-    const initializer_list<grpc::string>& values) {
-  assert(values.size() % 2 == 0);
-  map<grpc::string, grpc::string> value_map;
-  auto value_iter = values.begin();
-  for (unsigned i = 0; i < values.size()/2; ++i) {
-    grpc::string key = *value_iter;
-    ++value_iter;
-    grpc::string value = *value_iter;
-    value_map[key] = value;
-    ++value_iter;
-  }
-  return value_map;
-}
 
 // Provides RAII indentation handling. Use as:
 // {
@@ -177,8 +159,9 @@ grpc::string ModuleAlias(const grpc::string& filename) {
 bool GetModuleAndMessagePath(const Descriptor* type,
                              const ServiceDescriptor* service,
                              grpc::string* out) {
+  typedef std::vector<const Descriptor*> MessagePath;
   const Descriptor* path_elem_type = type;
-  vector<const Descriptor*> message_path;
+  MessagePath message_path;
   do {
     message_path.push_back(path_elem_type);
     path_elem_type = path_elem_type->containing_type();
@@ -193,7 +176,7 @@ bool GetModuleAndMessagePath(const Descriptor* type,
   grpc::string module = service_file_name == file_name ?
           "" : ModuleAlias(file_name) + ".";
   grpc::string message_type;
-  for (auto path_iter = message_path.rbegin();
+  for (MessagePath::reverse_iterator path_iter = message_path.rbegin();
        path_iter != message_path.rend(); ++path_iter) {
     message_type += (*path_iter)->name() + ".";
   }
@@ -208,7 +191,8 @@ bool GetModuleAndMessagePath(const Descriptor* type,
 // will not be changed.
 template <typename DescriptorType>
 static void PrintAllComments(const DescriptorType* desc, Printer* printer) {
-  std::vector<grpc::string> comments;
+  typedef std::vector<grpc::string> Comments;
+  Comments comments;
   grpc_generator::GetComment(desc, grpc_generator::COMMENTTYPE_LEADING_DETACHED,
                              &comments);
   grpc_generator::GetComment(desc, grpc_generator::COMMENTTYPE_LEADING,
@@ -219,7 +203,7 @@ static void PrintAllComments(const DescriptorType* desc, Printer* printer) {
     return;
   }
   printer->Print("\"\"\"");
-  for (auto it = comments.begin(); it != comments.end(); ++it) {
+  for (Comments::iterator it = comments.begin(); it != comments.end(); ++it) {
     size_t start_pos = it->find_first_not_of(' ');
     if (start_pos != grpc::string::npos) {
       printer->Print(it->c_str() + start_pos);
@@ -238,7 +222,7 @@ bool PrintBetaServicer(const ServiceDescriptor* service,
     IndentScope raii_class_indent(out);
     PrintAllComments(service, out);
     for (int i = 0; i < service->method_count(); ++i) {
-      auto meth = service->method(i);
+      const MethodDescriptor *meth = service->method(i);
       grpc::string arg_name = meth->client_streaming() ?
           "request_iterator" : "request";
       out->Print("def $Method$(self, $ArgName$, context):\n",
@@ -264,7 +248,9 @@ bool PrintBetaStub(const ServiceDescriptor* service,
       const MethodDescriptor* meth = service->method(i);
       grpc::string arg_name = meth->client_streaming() ?
           "request_iterator" : "request";
-      auto methdict = ListToDict({"Method", meth->name(), "ArgName", arg_name});
+      StringMap methdict;
+      methdict["Method"] = meth->name();
+      methdict["ArgName"] = arg_name;
       out->Print(methdict, "def $Method$(self, $ArgName$, timeout, metadata=None, with_call=False, protocol_options=None):\n");
       {
         IndentScope raii_method_indent(out);
@@ -287,9 +273,9 @@ bool PrintBetaServerFactory(const grpc::string& package_qualified_service_name,
              "Service", service->name());
   {
     IndentScope raii_create_server_indent(out);
-    map<grpc::string, grpc::string> method_implementation_constructors;
-    map<grpc::string, grpc::string> input_message_modules_and_classes;
-    map<grpc::string, grpc::string> output_message_modules_and_classes;
+    StringMap method_implementation_constructors;
+    StringMap input_message_modules_and_classes;
+    StringMap output_message_modules_and_classes;
     for (int i = 0; i < service->method_count(); ++i) {
       const MethodDescriptor* method = service->method(i);
       const grpc::string method_implementation_constructor =
@@ -314,7 +300,7 @@ bool PrintBetaServerFactory(const grpc::string& package_qualified_service_name,
           make_pair(method->name(), output_message_module_and_class));
     }
     out->Print("request_deserializers = {\n");
-    for (auto name_and_input_module_class_pair =
+    for (StringMap::iterator name_and_input_module_class_pair =
            input_message_modules_and_classes.begin();
          name_and_input_module_class_pair !=
            input_message_modules_and_classes.end();
@@ -329,7 +315,7 @@ bool PrintBetaServerFactory(const grpc::string& package_qualified_service_name,
     }
     out->Print("}\n");
     out->Print("response_serializers = {\n");
-    for (auto name_and_output_module_class_pair =
+    for (StringMap::iterator name_and_output_module_class_pair =
            output_message_modules_and_classes.begin();
          name_and_output_module_class_pair !=
            output_message_modules_and_classes.end();
@@ -344,7 +330,7 @@ bool PrintBetaServerFactory(const grpc::string& package_qualified_service_name,
     }
     out->Print("}\n");
     out->Print("method_implementations = {\n");
-    for (auto name_and_implementation_constructor =
+    for (StringMap::iterator name_and_implementation_constructor =
            method_implementation_constructors.begin();
 	 name_and_implementation_constructor !=
 	   method_implementation_constructors.end();
@@ -373,9 +359,8 @@ bool PrintBetaServerFactory(const grpc::string& package_qualified_service_name,
 
 bool PrintBetaStubFactory(const grpc::string& package_qualified_service_name,
                           const ServiceDescriptor* service, Printer* out) {
-  map<grpc::string, grpc::string> dict = ListToDict({
-        "Service", service->name(),
-      });
+  StringMap dict;
+  dict["Service"] = service->name();
   out->Print("\n\n");
   out->Print(dict, "def beta_create_$Service$_stub(channel, host=None,"
              " metadata_transformer=None, pool=None, pool_size=None):\n");
@@ -408,7 +393,7 @@ bool PrintBetaStubFactory(const grpc::string& package_qualified_service_name,
           make_pair(method->name(), output_message_module_and_class));
     }
     out->Print("request_serializers = {\n");
-    for (auto name_and_input_module_class_pair =
+    for (StringMap::iterator name_and_input_module_class_pair =
            input_message_modules_and_classes.begin();
          name_and_input_module_class_pair !=
            input_message_modules_and_classes.end();
@@ -423,7 +408,7 @@ bool PrintBetaStubFactory(const grpc::string& package_qualified_service_name,
     }
     out->Print("}\n");
     out->Print("response_deserializers = {\n");
-    for (auto name_and_output_module_class_pair =
+    for (StringMap::iterator name_and_output_module_class_pair =
            output_message_modules_and_classes.begin();
          name_and_output_module_class_pair !=
            output_message_modules_and_classes.end();
@@ -438,7 +423,7 @@ bool PrintBetaStubFactory(const grpc::string& package_qualified_service_name,
     }
     out->Print("}\n");
     out->Print("cardinalities = {\n");
-    for (auto name_and_cardinality = method_cardinalities.begin();
+    for (StringMap::iterator name_and_cardinality = method_cardinalities.begin();
          name_and_cardinality != method_cardinalities.end();
          name_and_cardinality++) {
       IndentScope raii_descriptions_indent(out);
@@ -476,43 +461,43 @@ bool PrintStub(const grpc::string& package_qualified_service_name,
       out->Print("Args:\n");
       {
         IndentScope raii_args_indent(out);
-	out->Print("channel: A grpc.Channel.\n");
+        out->Print("channel: A grpc.Channel.\n");
       }
       out->Print("\"\"\"\n");
       for (int i = 0; i < service->method_count(); ++i) {
-        auto method = service->method(i);
-	auto multi_callable_constructor =
-	    grpc::string(method->client_streaming() ? "stream" : "unary") +
-	    "_" +
-	    grpc::string(method->server_streaming() ? "stream" : "unary");
-	grpc::string request_module_and_class;
-	if (!GetModuleAndMessagePath(method->input_type(), service,
-				     &request_module_and_class)) {
-	  return false;
-	}
-	grpc::string response_module_and_class;
-	if (!GetModuleAndMessagePath(method->output_type(), service,
-				     &response_module_and_class)) {
+        const MethodDescriptor *method = service->method(i);
+        grpc::string multi_callable_constructor =
+            grpc::string(method->client_streaming() ? "stream" : "unary") +
+	          "_" +
+            grpc::string(method->server_streaming() ? "stream" : "unary");
+        grpc::string request_module_and_class;
+        if (!GetModuleAndMessagePath(method->input_type(), service,
+              &request_module_and_class)) {
           return false;
-	}
-	out->Print("self.$Method$ = channel.$MultiCallableConstructor$(\n",
-		   "Method", method->name(),
-		   "MultiCallableConstructor", multi_callable_constructor);
-	{
+        }
+        grpc::string response_module_and_class;
+        if (!GetModuleAndMessagePath(method->output_type(), service,
+              &response_module_and_class)) {
+          return false;
+        }
+        out->Print("self.$Method$ = channel.$MultiCallableConstructor$(\n",
+            "Method", method->name(),
+            "MultiCallableConstructor", multi_callable_constructor);
+        {
           IndentScope raii_first_attribute_indent(out);
           IndentScope raii_second_attribute_indent(out);
-	  out->Print(
-	      "'/$PackageQualifiedService$/$Method$',\n",
-	      "PackageQualifiedService", package_qualified_service_name,
-	      "Method", method->name());
-	  out->Print(
-	      "request_serializer=$RequestModuleAndClass$.SerializeToString,\n",
-	      "RequestModuleAndClass", request_module_and_class);
-	  out->Print(
+          out->Print(
+              "'/$PackageQualifiedService$/$Method$',\n",
+              "PackageQualifiedService", package_qualified_service_name,
+              "Method", method->name());
+          out->Print(
+              "request_serializer=$RequestModuleAndClass$.SerializeToString,\n",
+              "RequestModuleAndClass", request_module_and_class);
+          out->Print(
               "response_deserializer=$ResponseModuleAndClass$.FromString,\n",
-	      "ResponseModuleAndClass", response_module_and_class);
-	  out->Print(")\n");
-	}
+              "ResponseModuleAndClass", response_module_and_class);
+          out->Print(")\n");
+        }
       }
     }
   }
@@ -526,7 +511,7 @@ bool PrintServicer(const ServiceDescriptor* service, Printer* out) {
     IndentScope raii_class_indent(out);
     PrintAllComments(service, out);
     for (int i = 0; i < service->method_count(); ++i) {
-      auto method = service->method(i);
+      const MethodDescriptor *method = service->method(i);
       grpc::string arg_name = method->client_streaming() ?
 	  "request_iterator" : "request";
       out->Print("\n");
@@ -556,35 +541,35 @@ bool PrintAddServicerToServer(const grpc::string& package_qualified_service_name
       IndentScope raii_dict_first_indent(out);
       IndentScope raii_dict_second_indent(out);
       for (int i = 0; i < service->method_count(); ++i) {
-        auto method = service->method(i);
-	auto method_handler_constructor =
+        const MethodDescriptor *method = service->method(i);
+        grpc::string method_handler_constructor =
             grpc::string(method->client_streaming() ? "stream" : "unary") +
-	    "_" +
+            "_" +
             grpc::string(method->server_streaming() ? "stream" : "unary") +
             "_rpc_method_handler";
-	grpc::string request_module_and_class;
-	if (!GetModuleAndMessagePath(method->input_type(), service,
-				     &request_module_and_class)) {
-	  return false;
-	}
-	grpc::string response_module_and_class;
-	if (!GetModuleAndMessagePath(method->output_type(), service,
-				     &response_module_and_class)) {
+        grpc::string request_module_and_class;
+        if (!GetModuleAndMessagePath(method->input_type(), service,
+            &request_module_and_class)) {
           return false;
-	}
+        }
+        grpc::string response_module_and_class;
+        if (!GetModuleAndMessagePath(method->output_type(), service,
+              &response_module_and_class)) {
+          return false;
+        }
         out->Print("'$Method$': grpc.$MethodHandlerConstructor$(\n",
-		   "Method", method->name(),
-		   "MethodHandlerConstructor", method_handler_constructor);
-	{
+            "Method", method->name(),
+            "MethodHandlerConstructor", method_handler_constructor);
+        {
           IndentScope raii_call_first_indent(out);
-	  IndentScope raii_call_second_indent(out);
-	  out->Print("servicer.$Method$,\n", "Method", method->name());
-	  out->Print("request_deserializer=$RequestModuleAndClass$.FromString,\n",
-		     "RequestModuleAndClass", request_module_and_class);
-	  out->Print("response_serializer=$ResponseModuleAndClass$.SerializeToString,\n",
-		     "ResponseModuleAndClass", response_module_and_class);
-	}
-	out->Print("),\n");
+          IndentScope raii_call_second_indent(out);
+          out->Print("servicer.$Method$,\n", "Method", method->name());
+          out->Print("request_deserializer=$RequestModuleAndClass$.FromString,\n",
+              "RequestModuleAndClass", request_module_and_class);
+          out->Print("response_serializer=$ResponseModuleAndClass$.SerializeToString,\n",
+              "ResponseModuleAndClass", response_module_and_class);
+        }
+        out->Print("),\n");
       }
     }
     out->Print("}\n");
@@ -593,7 +578,7 @@ bool PrintAddServicerToServer(const grpc::string& package_qualified_service_name
       IndentScope raii_call_first_indent(out);
       IndentScope raii_call_second_indent(out);
       out->Print("'$PackageQualifiedServiceName$', rpc_method_handlers)\n",
-		 "PackageQualifiedServiceName", package_qualified_service_name);
+          "PackageQualifiedServiceName", package_qualified_service_name);
     }
     out->Print("server.add_generic_rpc_handlers((generic_handler,))\n");
   }
@@ -624,13 +609,13 @@ pair<bool, grpc::string> GetServices(const FileDescriptor* file,
     if (!PrintPreamble(file, config, &out)) {
       return make_pair(false, "");
     }
-    auto package = file->package();
+    grpc::string package = file->package();
     if (!package.empty()) {
       package = package.append(".");
     }
     for (int i = 0; i < file->service_count(); ++i) {
-      auto service = file->service(i);
-      auto package_qualified_service_name = package + service->name();
+      const ServiceDescriptor *service = file->service(i);
+      grpc::string package_qualified_service_name = package + service->name();
       if (!(PrintStub(package_qualified_service_name, service, &out) &&
 	    PrintServicer(service, &out) &&
 	    PrintAddServicerToServer(package_qualified_service_name, service, &out) &&
@@ -642,7 +627,7 @@ pair<bool, grpc::string> GetServices(const FileDescriptor* file,
       }
     }
   }
-  return make_pair(true, std::move(output));
+  return make_pair(true, output);
 }
 
 }  // namespace grpc_python_generator
