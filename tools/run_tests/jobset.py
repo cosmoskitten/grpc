@@ -117,8 +117,8 @@ def message(tag, msg, explanatory_text=None, do_newline=False):
   try:
     if platform_string() == 'windows' or not sys.stdout.isatty():
       if explanatory_text:
-        print explanatory_text
-      print '%s: %s' % (tag, msg)
+        print(explanatory_text)
+      print('%s: %s' % (tag, msg))
       return
     sys.stdout.write('%s%s%s\x1b[%d;%dm%s\x1b[0m: %s%s' % (
         _BEGINNING_OF_LINE,

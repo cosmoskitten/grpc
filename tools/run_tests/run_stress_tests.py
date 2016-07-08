@@ -140,7 +140,7 @@ def cloud_to_cloud_jobspec(language,
       '--num_channels_per_server=%s' % num_channels_per_server,
       '--metrics_port=%s' % metrics_port
   ]))
-  print cmdline
+  print(cmdline)
   cwd = language.client_cwd
   environ = language.global_env()
   if docker_image:
@@ -302,7 +302,7 @@ try:
       jobs.append(test_job)
 
   if not jobs:
-    print 'No jobs to run.'
+    print('No jobs to run.')
     for image in docker_images.itervalues():
       dockerjob.remove_image(image, skip_nonexistent=True)
     sys.exit(1)
@@ -319,10 +319,10 @@ finally:
   # Check if servers are still running.
   for server, job in server_jobs.iteritems():
     if not job.is_running():
-      print 'Server "%s" has exited prematurely.' % server
+      print('Server "%s" has exited prematurely.' % server)
 
   dockerjob.finish_jobs([j for j in server_jobs.itervalues()])
 
   for image in docker_images.itervalues():
-    print 'Removing docker image %s' % image
+    print('Removing docker image %s' % image)
     dockerjob.remove_image(image)
