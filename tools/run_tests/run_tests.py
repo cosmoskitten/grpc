@@ -93,7 +93,7 @@ class Config(object):
                        would like to run
     """
     actual_environ = self.environ.copy()
-    for k, v in environ.iteritems():
+    for k, v in environ.items():
       actual_environ[k] = v
     return jobset.JobSpec(cmdline=self.tool_prefix + cmdline,
                           shortname=shortname,
@@ -1047,7 +1047,7 @@ build_steps = list(set(
                    for l in languages
                    for cmdline in l.pre_build_steps()))
 if make_targets:
-  make_commands = itertools.chain.from_iterable(make_jobspec(build_config, list(targets), makefile) for (makefile, targets) in make_targets.iteritems())
+  make_commands = itertools.chain.from_iterable(make_jobspec(build_config, list(targets), makefile) for (makefile, targets) in make_targets.items())
   build_steps.extend(set(make_commands))
 build_steps.extend(set(
                    jobset.JobSpec(cmdline, environ=build_step_environ(build_config), timeout_seconds=None)

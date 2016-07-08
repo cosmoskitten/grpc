@@ -372,7 +372,7 @@ def docker_run_cmdline(cmdline, image, docker_args=[], cwd=None, environ=None):
 
   # turn environ into -e docker args
   if environ:
-    for k,v in environ.iteritems():
+    for k,v in environ.items():
       docker_cmdline += ['-e', '%s=%s' % (k,v)]
 
   # set working directory
@@ -768,7 +768,7 @@ try:
     (server_host, server_port) = server[1].split(':')
     server_addresses[server_name] = (server_host, server_port)
 
-  for server_name, server_address in server_addresses.iteritems():
+  for server_name, server_address in server_addresses.items():
     (server_host, server_port) = server_address
     server_language = _LANGUAGES.get(server_name, None)
     skip_server = []  # test cases unimplemented by server
@@ -814,7 +814,7 @@ try:
 
   report_utils.render_junit_xml_report(resultset, 'report.xml')
 
-  for name, job in resultset.iteritems():
+  for name, job in resultset.items():
     if "http2" in name:
       job[0].http2results = aggregate_http2_results(job[0].message)
 
@@ -826,7 +826,7 @@ try:
 
 finally:
   # Check if servers are still running.
-  for server, job in server_jobs.iteritems():
+  for server, job in server_jobs.items():
     if not job.is_running():
       print('Server "%s" has exited prematurely.' % server)
 

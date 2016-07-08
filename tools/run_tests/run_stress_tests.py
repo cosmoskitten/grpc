@@ -93,7 +93,7 @@ def docker_run_cmdline(cmdline, image, docker_args=[], cwd=None, environ=None):
 
   # turn environ into -e docker args
   if environ:
-    for k, v in environ.iteritems():
+    for k, v in environ.items():
       docker_cmdline += ['-e', '%s=%s' % (k, v)]
 
   # set working directory
@@ -287,7 +287,7 @@ try:
     (server_host, server_port) = server[1].split(':')
     server_addresses[server_name] = (server_host, server_port)
 
-  for server_name, server_address in server_addresses.iteritems():
+  for server_name, server_address in server_addresses.items():
     (server_host, server_port) = server_address
     for language in languages:
       test_job = cloud_to_cloud_jobspec(
@@ -317,7 +317,7 @@ try:
 
 finally:
   # Check if servers are still running.
-  for server, job in server_jobs.iteritems():
+  for server, job in server_jobs.items():
     if not job.is_running():
       print('Server "%s" has exited prematurely.' % server)
 

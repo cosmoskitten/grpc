@@ -60,7 +60,7 @@ def render_junit_xml_report(resultset, xml_report):
   root = ET.Element('testsuites')
   testsuite = ET.SubElement(root, 'testsuite', id='1', package='grpc', 
                             name='tests')
-  for shortname, results in resultset.iteritems(): 
+  for shortname, results in resultset.items():
     for result in results:
       xml_test = ET.SubElement(testsuite, 'testcase', name=shortname) 
       if result.elapsed_time:

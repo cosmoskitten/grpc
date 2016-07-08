@@ -31,7 +31,7 @@
 """Manage TCP ports for unit tests; started by run_tests.py"""
 
 import argparse
-import BaseHTTPServer
+from six.moves import BaseHTTPServer
 import hashlib
 import os
 import socket
@@ -147,7 +147,7 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
       self.send_header('Content-Type', 'text/plain')
       self.end_headers()
       now = time.time()
-      self.wfile.write(yaml.dump({'pool': pool, 'in_use': dict((k, now - v) for k, v in in_use.iteritems())}))
+      self.wfile.write(yaml.dump({'pool': pool, 'in_use': dict((k, now - v) for k, v in in_use.items())}))
     elif self.path == '/quitquitquit':
       self.send_response(200)
       self.end_headers()
