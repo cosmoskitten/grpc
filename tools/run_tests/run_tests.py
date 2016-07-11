@@ -397,7 +397,7 @@ class PythonLanguage(object):
     return [self.config.job_spec(
         ['tools/run_tests/run_python.sh', config.venv_python],
         timeout_seconds=5*60,
-        environ=dict(environment.items() +
+        environ=dict(list(environment.items()) +
                      [('GRPC_PYTHON_TESTRUNNER_FILTER', suite_name)]),
         shortname='%s.test.%s' % (config.venv, suite_name),)
         for suite_name in tests_json
