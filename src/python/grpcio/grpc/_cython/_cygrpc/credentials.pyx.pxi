@@ -33,6 +33,7 @@ cimport cpython
 cdef class ChannelCredentials:
 
   def __cinit__(self):
+    grpc_init()
     self.c_credentials = NULL
     self.c_ssl_pem_key_cert_pair.private_key = NULL
     self.c_ssl_pem_key_cert_pair.certificate_chain = NULL
@@ -47,11 +48,13 @@ cdef class ChannelCredentials:
   def __dealloc__(self):
     if self.c_credentials != NULL:
       grpc_channel_credentials_release(self.c_credentials)
+    grpc_shutdown()
 
 
 cdef class CallCredentials:
 
   def __cinit__(self):
+    grpc_init()
     self.c_credentials = NULL
     self.references = []
 
@@ -64,17 +67,20 @@ cdef class CallCredentials:
   def __dealloc__(self):
     if self.c_credentials != NULL:
       grpc_call_credentials_release(self.c_credentials)
+    grpc_shutdown()
 
 
 cdef class ServerCredentials:
 
   def __cinit__(self):
+    grpc_init()
     self.c_credentials = NULL
     self.references = []
 
   def __dealloc__(self):
     if self.c_credentials != NULL:
       grpc_server_credentials_release(self.c_credentials)
+    grpc_shutdown()
 
 
 cdef class CredentialsMetadataPlugin:

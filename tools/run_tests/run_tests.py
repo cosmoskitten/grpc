@@ -471,12 +471,14 @@ class PythonLanguage(object):
       bits = '32'
     else:
       bits = '64'
+
     if os.name == 'nt':
       shell = ['bash']
       builder = [os.path.abspath('tools/run_tests/build_python_msys2.sh')]
       builder_prefix_arguments = ['MINGW{}'.format(bits)]
       venv_relative_python = ['Scripts/python.exe']
       toolchain = ['mingw32']
+
       python_pattern_function = lambda major, minor, bits: (
           '/c/Python{major}{minor}/python.exe'.format(major=major, minor=minor, bits=bits)
 	  if bits == '64' else
@@ -488,19 +490,35 @@ class PythonLanguage(object):
       builder_prefix_arguments = []
       venv_relative_python = ['bin/python']
       toolchain = ['unix']
+
       # Bit-ness is handled by the test machine's environment
       python_pattern_function = lambda major, minor, bits: 'python{major}.{minor}'.format(major=major, minor=minor)
+
+      pypy_pattern_function = lambda major: 'pypy{major}'.format(major=major) if major == 3 else 'pypy'
+
     runner = [os.path.abspath('tools/run_tests/run_python.sh')]
+
     python_config_generator = lambda name, major, minor, bits: PythonConfig(
         name,
         shell + builder + builder_prefix_arguments
 	    + [python_pattern_function(major=major, minor=minor, bits=bits)]
 	    + [name] + venv_relative_python + toolchain,
         shell + runner + [os.path.join(name, venv_relative_python[0])])
+
+    pypy_config_generator = lambda name, major: PythonConfig(
+      name,
+      shell + builder + builder_prefix_arguments
+      + [pypy_pattern_function(major=major)]
+      + [name] + venv_relative_python + toolchain,
+      shell + runner + [os.path.join(name, venv_relative_python[0])])
+
     python27_config = python_config_generator(name='py27', major='2', minor='7', bits=bits)
     python34_config = python_config_generator(name='py34', major='3', minor='4', bits=bits)
     python35_config = python_config_generator(name='py35', major='3', minor='5', bits=bits)
     python36_config = python_config_generator(name='py36', major='3', minor='6', bits=bits)
+    pypy27_config = pypy_config_generator(name='pypy', major='2')
+    pypy32_config = pypy_config_generator(name='pypy3', major='3')
+
     if args.compiler == 'default':
       if os.name == 'nt':
         return (python27_config,)
@@ -514,6 +532,10 @@ class PythonLanguage(object):
       return (python35_config,)
     elif args.compiler == 'python3.6':
       return (python36_config,)
+    elif args.compiler == 'pypy':
+      return (pypy27_config,)
+    elif args.compiler == 'pypy3':
+      return (pypy32_config,)
     else:
       raise Exception('Compiler %s not supported.' % args.compiler)
 
@@ -946,7 +968,7 @@ argp.add_argument('--compiler',
                            'gcc4.4', 'gcc4.6', 'gcc4.9', 'gcc5.3',
                            'clang3.4', 'clang3.5', 'clang3.6', 'clang3.7',
                            'vs2010', 'vs2013', 'vs2015',
-                           'python2.7', 'python3.4', 'python3.5', 'python3.6',
+                           'python2.7', 'python3.4', 'python3.5', 'python3.6', 'pypy', 'pypy3',
                            'node0.12', 'node4', 'node5',
                            'coreclr'],
                   default='default',
