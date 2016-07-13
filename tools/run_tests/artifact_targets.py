@@ -107,8 +107,6 @@ class PythonArtifact:
       # special places...
       environ['PYTHON'] = '/opt/python/{}/bin/python'.format(self.manylinux_build)
       environ['PIP'] = '/opt/python/{}/bin/pip'.format(self.manylinux_build)
-      # Our docker image has all the prerequisites pip-installed already.
-      environ['SKIP_PIP_INSTALL'] = '1'
       # Platform autodetection for the manylinux1 image breaks so we set the
       # defines ourselves.
       # TODO(atash) get better platform-detection support in core so we don't

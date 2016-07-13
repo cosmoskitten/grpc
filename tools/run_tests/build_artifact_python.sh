@@ -44,7 +44,7 @@ then
   ${PIP} install --upgrade six
   # There's a bug in newer versions of setuptools (see
   # https://bitbucket.org/pypa/setuptools/issues/503/pkg_resources_vendorpackagingrequirementsi)
-  ${PIP} pip install --upgrade 'setuptools==18'
+  ${PIP} install --upgrade 'setuptools==18'
   ${PIP} install -rrequirements.txt
 fi
 
@@ -79,6 +79,20 @@ then
   for wheel in tools/distrib/python/grpcio_tools/dist/*.whl; do
     ${AUDITWHEEL} repair $wheel -w artifacts/
   done
+fi
+
+# We need to use the built grpcio-tools/grpcio to compile the health proto
+# Wheels are not supported by setup_requires/dependency_links, so we
+# manually install the dependency
+if [ "$SKIP_PIP_INSTALL" == "" ]
+then
+  ${PIP} install grpcio --no-index --find-links "file://${PWD}/artifacts/"
+  ${PIP} install grpcio-tools --no-index --find-links "file://${PWD}/artifacts/"
+
+  # Build gRPC health check source distribution
+  ${SETARCH_CMD} ${PYTHON} src/python/grpcio_health_checking/setup.py \
+      preprocess build_proto_modules sdist
+  cp -r src/python/grpcio_health_checking/dist/* artifacts
 fi
 
 cp -r dist/* artifacts
