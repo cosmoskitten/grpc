@@ -81,5 +81,10 @@ then
   done
 fi
 
+# Build gRPC health check source distribution
+${SETARCH_CMD} ${PYTHON} src/python/grpcio_health_checking/setup.py \
+    sdist
+
 cp -r dist/* artifacts
 cp -r tools/distrib/python/grpcio_tools/dist/* artifacts
+cp -r src/python/grpcio_health_checking/dist/* artifacts

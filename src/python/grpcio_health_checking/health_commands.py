@@ -60,7 +60,7 @@ class CopyProtoModules(setuptools.Command):
     if os.path.isfile(HEALTH_PROTO):
       shutil.copyfile(
           HEALTH_PROTO,
-          os.path.join(ROOT_DIR, 'grpc_health/health/v1/health.proto'))
+          os.path.join(ROOT_DIR, 'grpc/health/v1/health.proto'))
 
 
 class BuildPy(build_py.build_py):
