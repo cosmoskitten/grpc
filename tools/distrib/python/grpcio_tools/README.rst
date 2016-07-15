@@ -137,3 +137,22 @@ Given protobuf include directories :code:`$INCLUDE`, an output directory
 ::
 
   $ python -m grpc.tools.protoc -I$INCLUDE --python_out=$OUTPUT --grpc_python_out=$OUTPUT $PROTO_FILES
+
+To use as a build-step in distutils-based projects, you may use the provided
+command class in your :code:`setup.py`:
+
+::
+
+  setuptools.setup(
+    ...
+    cmdclass={
+      'build_proto_modules': grpc.tools.command.BuildProtoModules,
+    }
+    ...
+  )
+
+Invocation of the command will walk the project tree and transpile every
+:code:`.proto` file into a :code:`_pb2.py` file in the same directory.
+
+For more information on command classes, consult :code:`distutils` and
+:code:`setuptools` documentation.
