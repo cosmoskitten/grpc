@@ -32,6 +32,7 @@
 import os
 import os.path
 import platform
+import re
 import shlex
 import shutil
 import sys
@@ -39,6 +40,7 @@ import sysconfig
 
 from distutils import core as _core
 from distutils import extension as _extension
+from distutils import util
 import pkg_resources
 import setuptools
 from setuptools.command import egg_info
@@ -132,6 +134,10 @@ if 'darwin' in sys.platform and PY3:
   if mac_target and (pkg_resources.parse_version(mac_target) <
                      pkg_resources.parse_version('10.7.0')):
     os.environ['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
+    os.environ['_PYTHON_HOST_PLATFORM'] = re.sub(
+        r'macosx-[0-9]+\.[0-9]+-(.+)',
+        r'macosx-10.7-\1',
+        util.get_platform())
 
 
 def cython_extensions(module_names, extra_sources, include_dirs,
