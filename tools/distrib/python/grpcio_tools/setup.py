@@ -33,6 +33,7 @@ import os
 import os.path
 import pkg_resources
 import platform
+import re
 import shlex
 import shutil
 import sys
@@ -76,6 +77,10 @@ if 'darwin' in sys.platform and PY3:
   if mac_target and (pkg_resources.parse_version(mac_target) <
 		     pkg_resources.parse_version('10.9.0')):
     os.environ['MACOSX_DEPLOYMENT_TARGET'] = '10.9'
+    os.environ['_PYTHON_HOST_PLATFORM'] = re.sub(
+        r'macosx-[0-9]+\.[0-9]+-(.+)',
+        r'macosx-10.9-\1',
+        util.get_platform())
 
 def package_data():
   tools_path = GRPC_PYTHON_TOOLS_PACKAGE.replace('.', os.path.sep)
