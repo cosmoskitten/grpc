@@ -29,16 +29,11 @@
 
 """Provides distutils command classes for the gRPC Python setup process."""
 
-import distutils
-import glob
 import os
 import os.path
-import platform
 import re
 import shutil
-import subprocess
 import sys
-import traceback
 
 import setuptools
 from setuptools.command import build_ext
@@ -55,6 +50,10 @@ PYTHON_PROTO_TOP_LEVEL = os.path.join(PYTHON_STEM, 'src')
 
 
 class CommandError(object):
+  pass
+
+
+class DistutilsOptionError(Exception):
   pass
 
 
