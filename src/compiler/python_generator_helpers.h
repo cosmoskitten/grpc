@@ -31,44 +31,38 @@
  *
  */
 
-#ifndef GRPC_INTERNAL_COMPILER_PYTHON_GENERATOR_H
-#define GRPC_INTERNAL_COMPILER_PYTHON_GENERATOR_H
+#ifndef GRPC_INTERNAL_COMPILER_PYTHON_GENERATOR_HELPERS_H
+#define GRPC_INTERNAL_COMPILER_PYTHON_GENERATOR_HELPERS_H
 
-#include <utility>
-#include <memory>
 #include <vector>
 
 #include "src/compiler/config.h"
-#include "src/compiler/helper.h"
+#include "src/compiler/generator_helpers.h"
 
-namespace grpc_python_generator {
+// Get all comments (leading, leading_detached, trailing) and print them as a
+// docstring. Any leading space of a line will be removed, but the line wrapping
+// will not be changed.
+template <typename DescriptorType>
+static void PrintAllComments(const DescriptorType* desc, grpc::protobuf::io::Printer* printer) {
+   std::vector<grpc::string> comments;
+  grpc_generator::GetComment(desc, grpc_generator::COMMENTTYPE_LEADING_DETACHED,
+                            &comments);
+  grpc_generator::GetComment(desc, grpc_generator::COMMENTTYPE_LEADING,
+                            &comments);
+  grpc_generator::GetComment(desc, grpc_generator::COMMENTTYPE_TRAILING,
+                            &comments);
+  if (comments.empty()) {
+    return;
+  }
+  printer->Print("\"\"\"");
+  for (auto it = comments.begin(); it != comments.end(); ++it) {
+    size_t start_pos = it->find_first_not_of(' ');
+    if (start_pos != grpc::string::npos) {
+      printer->Print(it->c_str() + start_pos);
+    }
+    printer->Print("\n");
+  }
+  printer->Print("\"\"\"\n");
+}
 
-// Data pertaining to configuration of the generator with respect to anything
-// that may be used internally at Google.
-struct GeneratorConfiguration {
-  GeneratorConfiguration();
-  grpc::string grpc_package_root;
-  grpc::string beta_package_root;
-};
-
-class PythonGrpcGenerator : public grpc::protobuf::compiler::CodeGenerator {
- public:
-  PythonGrpcGenerator(const GeneratorConfiguration& config);
-  ~PythonGrpcGenerator();
-
-  bool Generate(const grpc::protobuf::FileDescriptor* file,
-                const grpc::string& parameter,
-                grpc::protobuf::compiler::GeneratorContext* context,
-                grpc::string* error) const;
-
- private:
-  GeneratorConfiguration config_;
-};
-
-std::pair<bool, grpc::string> GetServices(
-    File* file,
-    const GeneratorConfiguration& config);
-
-}  // namespace grpc_python_generator
-
-#endif  // GRPC_INTERNAL_COMPILER_PYTHON_GENERATOR_H
+#endif  // GRPC_INTERNAL_COMPILER_PYTHON_GENERATOR_HELPERS_H

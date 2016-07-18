@@ -34,36 +34,10 @@
 #ifndef GRPC_INTERNAL_COMPILER_CPP_GENERATOR_HELPERS_H
 #define GRPC_INTERNAL_COMPILER_CPP_GENERATOR_HELPERS_H
 
-#include <map>
 #include "src/compiler/config.h"
 #include "src/compiler/generator_helpers.h"
 
 namespace grpc_cpp_generator {
-
-inline grpc::string DotsToColons(const grpc::string &name) {
-  return grpc_generator::StringReplace(name, ".", "::");
-}
-
-inline grpc::string DotsToUnderscores(const grpc::string &name) {
-  return grpc_generator::StringReplace(name, ".", "_");
-}
-
-inline grpc::string ClassName(const grpc::protobuf::Descriptor *descriptor,
-                              bool qualified) {
-  // Find "outer", the descriptor of the top-level message in which
-  // "descriptor" is embedded.
-  const grpc::protobuf::Descriptor *outer = descriptor;
-  while (outer->containing_type() != NULL) outer = outer->containing_type();
-
-  const grpc::string &outer_name = outer->full_name();
-  grpc::string inner_name = descriptor->full_name().substr(outer_name.size());
-
-  if (qualified) {
-    return "::" + DotsToColons(outer_name) + DotsToUnderscores(inner_name);
-  } else {
-    return outer->name() + DotsToUnderscores(inner_name);
-  }
-}
 
 // Get leading or trailing comments in a string. Comment lines start with "// ".
 // Leading detached comments are put in in front of leading comments.
