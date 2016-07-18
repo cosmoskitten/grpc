@@ -35,8 +35,18 @@
 #define GRPC_INTERNAL_COMPILER_PYTHON_GENERATOR_H
 
 #include <utility>
+#include <memory>
+#include <vector>
 
-#include "src/compiler/config.h"
+#ifndef GRPC_CUSTOM_STRING
+#include <string>
+#define GRPC_CUSTOM_STRING std::string
+#endif
+
+namespace grpc {
+
+  typedef GRPC_CUSTOM_STRING string;
+}
 
 namespace grpc_python_generator {
 
@@ -48,22 +58,72 @@ struct GeneratorConfiguration {
   grpc::string beta_package_root;
 };
 
-class PythonGrpcGenerator : public grpc::protobuf::compiler::CodeGenerator {
- public:
-  PythonGrpcGenerator(const GeneratorConfiguration& config);
-  ~PythonGrpcGenerator();
+// An abstract interface representing a method.
+struct Method {
+  virtual ~Method() {}
 
-  bool Generate(const grpc::protobuf::FileDescriptor* file,
-                const grpc::string& parameter,
-                grpc::protobuf::compiler::GeneratorContext* context,
-                grpc::string* error) const;
+  virtual grpc::string name() const = 0;
 
- private:
-  GeneratorConfiguration config_;
+  virtual grpc::string input_type_name() const = 0;
+  virtual grpc::string output_type_name() const = 0;
+  virtual bool get_module_message_path_input(grpc::string* out) const = 0;
+  virtual bool get_module_message_path_output(grpc::string* out) const = 0;
+
+  virtual bool ClientStreaming() const = 0;
+  virtual bool ServerStreaming() const = 0; 
+};
+
+// An abstract interface representing a service
+struct Service {
+  virtual ~Service() {}
+
+  virtual grpc::string name() const = 0;
+
+  virtual int method_count() const = 0;
+  virtual std::unique_ptr<const Method> method(int i) const = 0;
+};
+
+struct Printer {
+  virtual ~Printer() {}
+
+  virtual void Print(const char *string, const char *method,
+                      grpc::string name) = 0;
+  virtual void Print(const char *string, const char *method,
+                      grpc::string name, const char *arg,
+                      grpc::string arg_name) = 0;
+  virtual void Print(const std::map<grpc::string, grpc::string> &dict,
+                      const char *template_string) = 0;
+  virtual void Print(const char *string, const char *package_name,
+                      const grpc::string service_name, const char *method_name,
+                      const grpc::string arg1, const char *type, 
+                      const grpc::string arg2) = 0;
+  virtual void Print(const char *string) = 0;
+  virtual void Indent() = 0;
+  virtual void Outdent() = 0;
+
+  virtual void GetLeadingDetached(std::vector<grpc::string> comments) const = 0;
+  virtual void GetLeading(std::vector<grpc::string> comments) const = 0;
+  virtual void GetTrailing(std::vector<grpc::string> comments) const = 0;
+};
+
+// An interface that allows the source generated to be output using various
+// libraries/idls/serializers.
+struct File {
+  virtual ~File() {}
+
+  virtual grpc::string filename() const = 0;
+  virtual grpc::string filename_without_ext() const = 0;
+  virtual grpc::string package() const = 0;
+  virtual std::vector<grpc::string> package_parts() const = 0;
+
+  virtual int service_count() const = 0;
+  virtual std::unique_ptr<const Service> service(int i) const = 0;
+
+  virtual std::unique_ptr<Printer> CreatePrinter(grpc::string *str) const = 0;
 };
 
 std::pair<bool, grpc::string> GetServices(
-    const grpc::protobuf::FileDescriptor* file,
+    File* file,
     const GeneratorConfiguration& config);
 
 }  // namespace grpc_python_generator

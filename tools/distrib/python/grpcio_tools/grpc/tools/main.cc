@@ -31,6 +31,7 @@
 #include <google/protobuf/compiler/python/python_generator.h>
 
 #include "src/compiler/python_generator.h"
+#include "src/compiler/python_generator_helpers.h"
 
 #include "grpc/tools/main.h"
 

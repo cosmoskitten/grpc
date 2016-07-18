@@ -35,6 +35,7 @@
 
 #include "src/compiler/config.h"
 #include "src/compiler/python_generator.h"
+#include "src/compiler/python_generator_helpers.h"
 
 int main(int argc, char* argv[]) {
   grpc_python_generator::GeneratorConfiguration config;
