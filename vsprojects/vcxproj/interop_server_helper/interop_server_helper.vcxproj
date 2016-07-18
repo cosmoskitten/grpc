@@ -152,6 +152,8 @@
   <ItemGroup>
     <ClCompile Include="$(SolutionDir)\..\test\cpp\interop\server_helper.cc">
     </ClCompile>
+    <ClCompile Include="$(SolutionDir)\..\test\cpp\interop\server_helper_auth.cc">
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="$(SolutionDir)\..\vsprojects\vcxproj\.\grpc_test_util\grpc_test_util.vcxproj">

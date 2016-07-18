@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2015, Google Inc.
+ * Copyright 2016, Google Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,33 +41,22 @@
 #include "src/core/lib/surface/call_test_only.h"
 #include "test/core/end2end/data/ssl_test_data.h"
 
+DECLARE_bool(use_tls);
+
 namespace grpc {
 namespace testing {
 
-InteropServerContextInspector::InteropServerContextInspector(
-    const ::grpc::ServerContext& context)
-    : context_(context) {}
-
-grpc_compression_algorithm
-InteropServerContextInspector::GetCallCompressionAlgorithm() const {
-  return grpc_call_test_only_get_compression_algorithm(context_.call_);
-}
-
-uint32_t InteropServerContextInspector::GetEncodingsAcceptedByClient() const {
-  return grpc_call_test_only_get_encodings_accepted_by_peer(context_.call_);
-}
-
-uint32_t InteropServerContextInspector::GetMessageFlags() const {
-  return grpc_call_test_only_get_message_flags(context_.call_);
-}
-
-std::shared_ptr<const AuthContext>
-InteropServerContextInspector::GetAuthContext() const {
-  return context_.auth_context();
-}
-
-bool InteropServerContextInspector::IsCancelled() const {
-  return context_.IsCancelled();
+std::shared_ptr<ServerCredentials> CreateInteropServerCredentials() {
+  if (FLAGS_use_tls) {
+    SslServerCredentialsOptions::PemKeyCertPair pkcp = {test_server1_key,
+                                                        test_server1_cert};
+    SslServerCredentialsOptions ssl_opts;
+    ssl_opts.pem_root_certs = "";
+    ssl_opts.pem_key_cert_pairs.push_back(pkcp);
+    return SslServerCredentials(ssl_opts);
+  } else {
+    return InsecureServerCredentials();
+  }
 }
 
 }  // namespace testing

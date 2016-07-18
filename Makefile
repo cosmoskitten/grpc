@@ -4255,6 +4255,7 @@ $(OBJDIR)/$(CONFIG)/test/cpp/interop/interop_client.o: $(GENDIR)/src/proto/grpc/
 
 LIBINTEROP_SERVER_HELPER_SRC = \
     test/cpp/interop/server_helper.cc \
+    test/cpp/interop/server_helper_auth.cc \
 
 PUBLIC_HEADERS_CXX += \
 
@@ -14873,6 +14874,7 @@ test/cpp/interop/client_helper.cc: $(OPENSSL_DEP)
 test/cpp/interop/interop_client.cc: $(OPENSSL_DEP)
 test/cpp/interop/interop_server.cc: $(OPENSSL_DEP)
 test/cpp/interop/server_helper.cc: $(OPENSSL_DEP)
+test/cpp/interop/server_helper_auth.cc: $(OPENSSL_DEP)
 test/cpp/qps/client_async.cc: $(OPENSSL_DEP)
 test/cpp/qps/client_sync.cc: $(OPENSSL_DEP)
 test/cpp/qps/driver.cc: $(OPENSSL_DEP)

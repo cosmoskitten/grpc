@@ -1109,6 +1109,7 @@ libs:
   - test/cpp/interop/server_helper.h
   src:
   - test/cpp/interop/server_helper.cc
+  - test/cpp/interop/server_helper_auth.cc
   deps:
   - grpc_test_util
   - grpc++

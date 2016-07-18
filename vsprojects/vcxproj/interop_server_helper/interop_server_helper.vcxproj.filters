@@ -4,6 +4,9 @@
     <ClCompile Include="$(SolutionDir)\..\test\cpp\interop\server_helper.cc">
       <Filter>test\cpp\interop</Filter>
     </ClCompile>
+    <ClCompile Include="$(SolutionDir)\..\test\cpp\interop\server_helper_auth.cc">
+      <Filter>test\cpp\interop</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SolutionDir)\..\test\cpp\interop\server_helper.h">

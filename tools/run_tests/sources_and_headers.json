@@ -4592,7 +4592,8 @@
     "name": "interop_server_helper", 
     "src": [
       "test/cpp/interop/server_helper.cc", 
-      "test/cpp/interop/server_helper.h"
+      "test/cpp/interop/server_helper.h", 
+      "test/cpp/interop/server_helper_auth.cc"
     ], 
     "third_party": false, 
     "type": "lib"
