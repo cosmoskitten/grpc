@@ -29,7 +29,6 @@
 
 """Provides distutils command classes for the gRPC Python setup process."""
 
-import distutils
 import glob
 import os
 import os.path
@@ -41,6 +40,7 @@ import sys
 import traceback
 
 import setuptools
+from distutils import errors
 from setuptools.command import build_ext
 from setuptools.command import build_py
 from setuptools.command import easy_install
@@ -55,10 +55,6 @@ PYTHON_PROTO_TOP_LEVEL = os.path.join(PYTHON_STEM, 'src')
 
 
 class CommandError(object):
-  pass
-
-
-class DistutilsOptionError(Exception):
   pass
 
 
@@ -194,7 +190,7 @@ class RunInterop(test.test):
 
   def finalize_options(self):
     if self.client and self.server:
-      raise DistutilsOptionError('you may only specify one of client or server')
+      raise errors.DistutilsOptionError('you may only specify one of client or server')
 
   def run(self):
     if self.distribution.install_requires:
