@@ -184,6 +184,70 @@ class BuildPy(build_py.build_py):
     build_py.build_py.run(self)
 
 
+def _poison_extensions(extensions, message):
+  """Includes a file that will always fail to compile in all extensions."""
+  poison_filename = os.path.join(PYTHON_STEM, 'poison.c')
+  with open(poison_filename, 'w') as poison:
+    poison.write('#error {}'.format(message))
+  for extension in extensions:
+    extension.sources = [poison_filename]
+
+def check_and_update_cythonization(extensions):
+  """Replace .pyx files with their generated counterparts and return whether or
+     not cythonization still needs to occur."""
+  built = True
+  for extension in extensions:
+    pyx_sources = [source for source in extension.sources if os.path.splitext(source)[1] == '.pyx']
+    other_sources = [source for source in extension.sources if os.path.splitext(source)[1] != '.pyx']
+    generated_pyx_sources = []
+    for source in pyx_sources:
+      base, file_extension = os.path.splitext(source)
+      found_gen = False
+      for gen_extension in ('.c', '.cpp',):
+        if os.path.isfile(base + gen_extension):
+          generated_pyx_sources.append(base + gen_extension)
+          found_gen = True
+          break
+      if not found_gen:
+        built = False
+        break
+      extension.sources = generated_pyx_sources + other_sources
+  if built:
+    sys.stderr.write('Found cython-generated files...\n')
+  else:
+    sys.stderr.write('Cython-generated files are missing...\n')
+  return built
+
+def try_cythonize(extensions, linetracing=False, mandatory=True):
+  """Attempt to cythonize the extensions.
+
+  Args:
+    extensions: A list of `distutils.extension.Extension`.
+    linetracing: A bool indicating whether or not to enable linetracing.
+    mandatory: Whether or not having Cython-generated files is mandatory. If it
+      is, extensions will be poisoned when they can't be fully generated.
+  """
+  try:
+    # Break import style to ensure we have access to Cython post-setup_requires
+    import Cython.Build
+  except ImportError:
+    if mandatory:
+      sys.stderr.write('This package needs to generate C files with Cython but it cannot. Poisoning extension sources to disallow extension commands...')
+      _poison_extensions(extensions, "Extensions have been poisoned due to missing Cython-generated code.")
+    return extensions
+  cython_compiler_directives = {}
+  if linetracing:
+    additional_define_macros = [('CYTHON_TRACE_NOGIL', '1')]
+    cython_compiler_directives['linetrace'] = True
+  return Cython.Build.cythonize(
+    extensions,
+    include_path=[
+      include_dir for extension in extensions for include_dir in extension.include_dirs
+    ],
+    compiler_directives=cython_compiler_directives
+  )
+
+
 class BuildExt(build_ext.build_ext):
   """Custom build_ext command to enable compiler-specific flags."""
 
@@ -201,6 +265,8 @@ class BuildExt(build_ext.build_ext):
     if compiler in BuildExt.LINK_OPTIONS:
       for extension in self.extensions:
         extension.extra_link_args += list(BuildExt.LINK_OPTIONS[compiler])
+    if not check_and_update_cythonization(self.extensions):
+      self.extensions = try_cythonize(self.extensions)
     try:
       build_ext.build_ext.build_extensions(self)
     except Exception as error:
