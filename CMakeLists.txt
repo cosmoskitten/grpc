@@ -139,6 +139,7 @@ add_library(grpc
   src/core/lib/channel/channel_stack_builder.c
   src/core/lib/channel/compress_filter.c
   src/core/lib/channel/connected_channel.c
+  src/core/lib/channel/handshaker.c
   src/core/lib/channel/http_client_filter.c
   src/core/lib/channel/http_server_filter.c
   src/core/lib/compression/compression.c
@@ -345,6 +346,7 @@ add_library(grpc_cronet
   src/core/lib/channel/channel_stack_builder.c
   src/core/lib/channel/compress_filter.c
   src/core/lib/channel/connected_channel.c
+  src/core/lib/channel/handshaker.c
   src/core/lib/channel/http_client_filter.c
   src/core/lib/channel/http_server_filter.c
   src/core/lib/compression/compression.c
@@ -527,6 +529,7 @@ add_library(grpc_unsecure
   src/core/lib/channel/channel_stack_builder.c
   src/core/lib/channel/compress_filter.c
   src/core/lib/channel/connected_channel.c
+  src/core/lib/channel/handshaker.c
   src/core/lib/channel/http_client_filter.c
   src/core/lib/channel/http_server_filter.c
   src/core/lib/compression/compression.c

@@ -52,7 +52,6 @@
 #include <grpc/grpc_security.h>
 
 zend_class_entry *grpc_ce_channel_credentials;
-
 static char *default_pem_root_certs = NULL;
 
 static grpc_ssl_roots_override_result get_ssl_roots_override(
@@ -64,6 +63,8 @@ static grpc_ssl_roots_override_result get_ssl_roots_override(
   return GRPC_SSL_ROOTS_OVERRIDE_OK;
 }
 
+#if PHP_MAJOR_VERSION < 7
+
 /* Frees and destroys an instance of wrapped_grpc_channel_credentials */
 void free_wrapped_grpc_channel_credentials(void *object TSRMLS_DC) {
   wrapped_grpc_channel_credentials *creds =
@@ -71,6 +72,7 @@ void free_wrapped_grpc_channel_credentials(void *object TSRMLS_DC) {
   if (creds->wrapped != NULL) {
     grpc_channel_credentials_release(creds->wrapped);
   }
+  zend_object_std_dtor(&creds->std TSRMLS_CC);
   efree(creds);
 }
 
@@ -94,13 +96,42 @@ zend_object_value create_wrapped_grpc_channel_credentials(
   return retval;
 }
 
-zval *grpc_php_wrap_channel_credentials(grpc_channel_credentials *wrapped TSRMLS_DC) {
+#else
+
+static zend_object_handlers channel_credentials_ce_handlers;
+
+/* Frees and destroys an instance of wrapped_grpc_channel_credentials */
+static void free_wrapped_grpc_channel_credentials(zend_object *object) {
+  wrapped_grpc_channel_credentials *creds =
+    wrapped_grpc_channel_creds_from_obj(object);
+  if (creds->wrapped != NULL) {
+    grpc_channel_credentials_release(creds->wrapped);
+  }
+  zend_object_std_dtor(&creds->std);
+}
+
+/* Initializes an instance of wrapped_grpc_channel_credentials to be
+ * associated with an object of a class specified by class_type */
+zend_object *create_wrapped_grpc_channel_credentials(zend_class_entry
+                                                     *class_type) {
+  wrapped_grpc_channel_credentials *intern;
+  intern = ecalloc(1, sizeof(wrapped_grpc_channel_credentials) +
+                   zend_object_properties_size(class_type));
+  zend_object_std_init(&intern->std, class_type);
+  object_properties_init(&intern->std, class_type);
+  intern->std.handlers = &channel_credentials_ce_handlers;
+  return &intern->std;
+}
+
+#endif
+
+zval *grpc_php_wrap_channel_credentials(grpc_channel_credentials
+                                        *wrapped TSRMLS_DC) {
   zval *credentials_object;
-  MAKE_STD_ZVAL(credentials_object);
+  PHP_GRPC_MAKE_STD_ZVAL(credentials_object);
   object_init_ex(credentials_object, grpc_ce_channel_credentials);
   wrapped_grpc_channel_credentials *credentials =
-      (wrapped_grpc_channel_credentials *)zend_object_store_get_object(
-          credentials_object TSRMLS_CC);
+    Z_WRAPPED_GRPC_CHANNEL_CREDS_P(credentials_object);
   credentials->wrapped = wrapped;
   return credentials_object;
 }
@@ -112,7 +143,9 @@ zval *grpc_php_wrap_channel_credentials(grpc_channel_credentials *wrapped TSRMLS
  */
 PHP_METHOD(ChannelCredentials, setDefaultRootsPem) {
   char *pem_roots;
-  int pem_roots_length;
+  php_grpc_int pem_roots_length;
+
+  /* "s" == 1 string */
   if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &pem_roots,
                             &pem_roots_length) == FAILURE) {
     zend_throw_exception(spl_ce_InvalidArgumentException,
@@ -129,7 +162,9 @@ PHP_METHOD(ChannelCredentials, setDefaultRootsPem) {
  */
 PHP_METHOD(ChannelCredentials, createDefault) {
   grpc_channel_credentials *creds = grpc_google_default_credentials_create();
-  zval *creds_object = grpc_php_wrap_channel_credentials(creds TSRMLS_CC);
+  zval *creds_object;
+  PHP_GRPC_MAKE_STD_ZVAL(creds_object);
+  creds_object = grpc_php_wrap_channel_credentials(creds TSRMLS_CC);
   RETURN_DESTROY_ZVAL(creds_object);
 }
 
@@ -146,11 +181,13 @@ PHP_METHOD(ChannelCredentials, createSsl) {
   char *pem_root_certs = NULL;
   grpc_ssl_pem_key_cert_pair pem_key_cert_pair;
 
-  int root_certs_length = 0, private_key_length = 0, cert_chain_length = 0;
+  php_grpc_int root_certs_length = 0;
+  php_grpc_int private_key_length = 0;
+  php_grpc_int cert_chain_length = 0;
 
   pem_key_cert_pair.private_key = pem_key_cert_pair.cert_chain = NULL;
 
-  /* "|s!s!s! == 3 optional nullable strings */
+  /* "|s!s!s!" == 3 optional nullable strings */
   if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s!s!s!",
                             &pem_root_certs, &root_certs_length,
                             &pem_key_cert_pair.private_key,
@@ -164,7 +201,9 @@ PHP_METHOD(ChannelCredentials, createSsl) {
   grpc_channel_credentials *creds = grpc_ssl_credentials_create(
       pem_root_certs,
       pem_key_cert_pair.private_key == NULL ? NULL : &pem_key_cert_pair, NULL);
-  zval *creds_object = grpc_php_wrap_channel_credentials(creds TSRMLS_CC);
+  zval *creds_object;
+  PHP_GRPC_MAKE_STD_ZVAL(creds_object);
+  creds_object = grpc_php_wrap_channel_credentials(creds TSRMLS_CC);
   RETURN_DESTROY_ZVAL(creds_object);
 }
 
@@ -178,7 +217,7 @@ PHP_METHOD(ChannelCredentials, createComposite) {
   zval *cred1_obj;
   zval *cred2_obj;
 
-  /* "OO" == 3 Objects */
+  /* "OO" == 2 Objects */
   if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "OO", &cred1_obj,
                             grpc_ce_channel_credentials, &cred2_obj,
                             grpc_ce_call_credentials) == FAILURE) {
@@ -187,15 +226,15 @@ PHP_METHOD(ChannelCredentials, createComposite) {
     return;
   }
   wrapped_grpc_channel_credentials *cred1 =
-      (wrapped_grpc_channel_credentials *)zend_object_store_get_object(
-          cred1_obj TSRMLS_CC);
+    Z_WRAPPED_GRPC_CHANNEL_CREDS_P(cred1_obj);
   wrapped_grpc_call_credentials *cred2 =
-      (wrapped_grpc_call_credentials *)zend_object_store_get_object(
-          cred2_obj TSRMLS_CC);
+    Z_WRAPPED_GRPC_CALL_CREDS_P(cred2_obj);
   grpc_channel_credentials *creds =
       grpc_composite_channel_credentials_create(cred1->wrapped, cred2->wrapped,
                                                 NULL);
-  zval *creds_object = grpc_php_wrap_channel_credentials(creds TSRMLS_CC);
+  zval *creds_object;
+  PHP_GRPC_MAKE_STD_ZVAL(creds_object);
+  creds_object = grpc_php_wrap_channel_credentials(creds TSRMLS_CC);
   RETURN_DESTROY_ZVAL(creds_object);
 }
 
@@ -218,7 +257,8 @@ static zend_function_entry channel_credentials_methods[] = {
          ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
   PHP_ME(ChannelCredentials, createInsecure, NULL,
          ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
-  PHP_FE_END};
+  PHP_FE_END
+};
 
 void grpc_init_channel_credentials(TSRMLS_D) {
   zend_class_entry ce;
@@ -227,4 +267,13 @@ void grpc_init_channel_credentials(TSRMLS_D) {
   grpc_set_ssl_roots_override_callback(get_ssl_roots_override);
   ce.create_object = create_wrapped_grpc_channel_credentials;
   grpc_ce_channel_credentials = zend_register_internal_class(&ce TSRMLS_CC);
+#if PHP_MAJOR_VERSION >= 7
+  memcpy(&channel_credentials_ce_handlers,
+         zend_get_std_object_handlers(),
+         sizeof(zend_object_handlers));
+  channel_credentials_ce_handlers.offset =
+    XtOffsetOf(wrapped_grpc_channel_credentials, std);
+  channel_credentials_ce_handlers.free_obj =
+    free_wrapped_grpc_channel_credentials;
+#endif
 }
