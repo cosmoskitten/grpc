@@ -51,7 +51,7 @@
 #include <grpc/support/time.h>
 
 zend_class_entry *grpc_ce_timeval;
-PHP_GRPC_DECLARE_OBJECT_HANDLER(timeval_ce_handlers);
+PHP_GRPC_DECLARE_OBJECT_HANDLER(timeval_ce_handlers)
 
 /* Frees and destroys an instance of wrapped_grpc_call */
 PHP_GRPC_FREE_WRAPPED_FUNC_START(wrapped_grpc_timeval)

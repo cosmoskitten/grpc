@@ -224,7 +224,7 @@ static inline int php_grpc_zend_hash_del(HashTable *ht, char *key, int len) {
   } while(0)
 
 #define PHP_GRPC_DECLARE_OBJECT_HANDLER(handler_name) \
-  static zend_object_handlers handler_name
+  static zend_object_handlers handler_name;
 
 #endif /* PHP_MAJOR_VERSION */
 
