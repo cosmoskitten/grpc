@@ -93,15 +93,12 @@ PHP_METHOD(Server, __construct) {
   if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|a", &args_array) ==
       FAILURE) {
     zend_throw_exception(spl_ce_InvalidArgumentException,
-                         "Server expects an array",
-                         1 TSRMLS_CC);
+                         "Server expects an array", 1 TSRMLS_CC);
     return;
   }
   if (args_array == NULL) {
     server->wrapped = grpc_server_create(NULL, NULL);
   } else {
-    //TODO(thinkerou): deal it if key of array is long, crash now on php7
-    // and update unit test case
     php_grpc_read_args_array(args_array, &args TSRMLS_CC);
     server->wrapped = grpc_server_create(&args, NULL);
     efree(args.args);
@@ -198,9 +195,9 @@ PHP_METHOD(Server, addSecureHttp2Port) {
   if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sO", &addr, &addr_len,
                             &creds_obj, grpc_ce_server_credentials) ==
       FAILURE) {
-    zend_throw_exception(
-        spl_ce_InvalidArgumentException,
-        "add_http2_port expects a string and a ServerCredentials", 1 TSRMLS_CC);
+    zend_throw_exception(spl_ce_InvalidArgumentException,
+                         "add_http2_port expects a string and a "
+                         "ServerCredentials", 1 TSRMLS_CC);
     return;
   }
   wrapped_grpc_server_credentials *creds =
