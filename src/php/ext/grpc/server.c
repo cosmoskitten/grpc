@@ -151,25 +151,12 @@ PHP_METHOD(Server, requestCall) {
   }
   php_grpc_add_property_string(result, "method", details.method, true);
   php_grpc_add_property_string(result, "host", details.host, true);
-#if PHP_MAJOR_VERSION < 7
-  add_property_zval(result, "call", grpc_php_wrap_call(call, true TSRMLS_CC));
-  add_property_zval(result, "absolute_deadline",
-                    grpc_php_wrap_timeval(details.deadline TSRMLS_CC));
-  add_property_zval(result, "metadata", grpc_parse_metadata_array(&metadata
-                                                                  TSRMLS_CC));
-#else
-  zval zv_call;
-  zval zv_timeval;
-  zval zv_md;
-  //TODO(thinkerou): why use zval* to unit test error?
-  zv_call = *grpc_php_wrap_call(call, true);
-  zv_timeval = *grpc_php_wrap_timeval(details.deadline);
-  zv_md = *grpc_parse_metadata_array(&metadata);
-
-  add_property_zval(result, "call", &zv_call);
-  add_property_zval(result, "absolute_deadline", &zv_timeval);
-  add_property_zval(result, "metadata", &zv_md);
-#endif
+  php_grpc_add_property_zval(result, "call",
+                             grpc_php_wrap_call(call, true TSRMLS_CC));
+  php_grpc_add_property_zval(result, "absolute_deadline",
+                             grpc_php_wrap_timeval(details.deadline TSRMLS_CC));
+  php_grpc_add_property_zval(result, "metadata",
+                             grpc_parse_metadata_array(&metadata TSRMLS_CC));
 
  cleanup:
   grpc_call_details_destroy(&details);

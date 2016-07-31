@@ -128,6 +128,9 @@ static inline int php_grpc_zend_hash_find(HashTable *ht, char *key, int len,
 
 #define PHP_GRPC_INIT_HANDLER(class_object, handler_name)
 
+#define php_grpc_add_property_zval(res, name, val) \
+  add_property_zval(res, name, val)
+
 #else
 
 #define php_grpc_int size_t
@@ -211,6 +214,12 @@ static inline int php_grpc_zend_hash_del(HashTable *ht, char *key, int len) {
          sizeof(zend_object_handlers)); \
   handler_name.offset = XtOffsetOf(class_object, std); \
   handler_name.free_obj = free_##class_object
+
+#define php_grpc_add_property_zval(res, name, val) do { \
+  zval tmp; \
+  tmp = *val; \
+  add_property_zval(res, name, &tmp); \
+  } while(0)
 
 #endif /* PHP_MAJOR_VERSION */
 

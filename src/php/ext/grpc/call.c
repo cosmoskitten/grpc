@@ -428,9 +428,6 @@ PHP_METHOD(Call, startBatch) {
   }
   grpc_completion_queue_pluck(completion_queue, call->wrapped,
                               gpr_inf_future(GPR_CLOCK_REALTIME), NULL);
-#if PHP_MAJOR_VERSION >= 7
-  zval recv_md;
-#endif
   for (int i = 0; i < op_num; i++) {
     switch(ops[i].op) {
     case GRPC_OP_SEND_INITIAL_METADATA:
@@ -446,13 +443,8 @@ PHP_METHOD(Call, startBatch) {
       add_property_bool(result, "send_status", true);
       break;
     case GRPC_OP_RECV_INITIAL_METADATA:
-#if PHP_MAJOR_VERSION < 7
       array = grpc_parse_metadata_array(&recv_metadata TSRMLS_CC);
-      add_property_zval(result, "metadata", array);
-#else
-      recv_md = *grpc_parse_metadata_array(&recv_metadata);
-      add_property_zval(result, "metadata", &recv_md);
-#endif
+      php_grpc_add_property_zval(result, "metadata", array);
       PHP_GRPC_DELREF(array);
       break;
     case GRPC_OP_RECV_MESSAGE:
@@ -465,13 +457,8 @@ PHP_METHOD(Call, startBatch) {
       }
       break;
     case GRPC_OP_RECV_STATUS_ON_CLIENT:
-#if PHP_MAJOR_VERSION < 7
       array = grpc_parse_metadata_array(&recv_trailing_metadata TSRMLS_CC);
-      add_property_zval(recv_status, "metadata", array);
-#else
-      recv_md = *grpc_parse_metadata_array(&recv_trailing_metadata);
-      add_property_zval(recv_status, "metadata", &recv_md);
-#endif
+      php_grpc_add_property_zval(recv_status, "metadata", array);
       PHP_GRPC_DELREF(array);
       add_property_long(recv_status, "code", status);
       php_grpc_add_property_string(recv_status, "details", status_details,
