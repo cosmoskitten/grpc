@@ -50,9 +50,7 @@
 #include <grpc/grpc_security.h>
 
 zend_class_entry *grpc_ce_server_credentials;
-#if PHP_MAJOR_VERSION >= 7
-static zend_object_handlers server_credentials_ce_handlers;
-#endif
+PHP_GRPC_DECLARE_OBJECT_HANDLER(server_credentials_ce_handlers);
 
 /* Frees and destroys an instace of wrapped_grpc_server_credentials */
 PHP_GRPC_FREE_WRAPPED_FUNC_START(wrapped_grpc_server_credentials)

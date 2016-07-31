@@ -58,9 +58,7 @@
 #include "byte_buffer.h"
 
 zend_class_entry *grpc_ce_call;
-#if PHP_MAJOR_VERSION >= 7
-static zend_object_handlers call_ce_handlers;
-#endif
+PHP_GRPC_DECLARE_OBJECT_HANDLER(call_ce_handlers);
 
 /* Frees and destroys an instance of wrapped_grpc_call */
 PHP_GRPC_FREE_WRAPPED_FUNC_START(wrapped_grpc_call)

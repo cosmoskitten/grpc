@@ -52,9 +52,7 @@
 #include <grpc/grpc_security.h>
 
 zend_class_entry *grpc_ce_channel_credentials;
-#if PHP_MAJOR_VERSION >= 7
-static zend_object_handlers channel_credentials_ce_handlers;
-#endif
+PHP_GRPC_DECLARE_OBJECT_HANDLER(channel_credentials_ce_handlers);
 static char *default_pem_root_certs = NULL;
 
 static grpc_ssl_roots_override_result get_ssl_roots_override(
