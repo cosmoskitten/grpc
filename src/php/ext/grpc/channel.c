@@ -166,7 +166,7 @@ PHP_METHOD(Channel, __construct) {
     channel->wrapped = grpc_insecure_channel_create(target, &args, NULL);
   } else {
     channel->wrapped =
-        grpc_secure_channel_create(creds->wrapped, target, &args, NULL);
+      grpc_secure_channel_create(creds->wrapped, target, &args, NULL);
   }
   efree(args.args);
 }

@@ -188,8 +188,8 @@ PHP_METHOD(ChannelCredentials, createComposite) {
   wrapped_grpc_call_credentials *cred2 =
     PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_call_credentials, cred2_obj);
   grpc_channel_credentials *creds =
-      grpc_composite_channel_credentials_create(cred1->wrapped, cred2->wrapped,
-                                                NULL);
+    grpc_composite_channel_credentials_create(cred1->wrapped, cred2->wrapped,
+                                              NULL);
   zval *creds_object;
   PHP_GRPC_MAKE_STD_ZVAL(creds_object);
   creds_object = grpc_php_wrap_channel_credentials(creds TSRMLS_CC);

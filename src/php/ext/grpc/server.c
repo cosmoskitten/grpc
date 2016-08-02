@@ -130,8 +130,8 @@ PHP_METHOD(Server, requestCall) {
   grpc_call_details_init(&details);
   grpc_metadata_array_init(&metadata);
   error_code =
-      grpc_server_request_call(server->wrapped, &call, &details, &metadata,
-                               completion_queue, completion_queue, NULL);
+    grpc_server_request_call(server->wrapped, &call, &details, &metadata,
+                             completion_queue, completion_queue, NULL);
   if (error_code != GRPC_CALL_OK) {
     zend_throw_exception(spl_ce_LogicException, "request_call failed",
                          (long)error_code TSRMLS_CC);
