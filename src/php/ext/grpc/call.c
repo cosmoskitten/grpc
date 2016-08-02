@@ -185,7 +185,8 @@ zval *grpc_php_wrap_call(grpc_call *wrapped, bool owned TSRMLS_DC) {
   zval *call_object;
   PHP_GRPC_MAKE_STD_ZVAL(call_object);
   object_init_ex(call_object, grpc_ce_call);
-  wrapped_grpc_call *call = Z_WRAPPED_GRPC_CALL_P(call_object);
+  wrapped_grpc_call *call = PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_call,
+                                                        call_object);
   call->wrapped = wrapped;
   call->owned = owned;
   return call_object;
@@ -206,7 +207,8 @@ PHP_METHOD(Call, __construct) {
   zval *deadline_obj;
   char *host_override = NULL;
   php_grpc_int host_override_len = 0;
-  wrapped_grpc_call *call = Z_WRAPPED_GRPC_CALL_P(getThis());
+  wrapped_grpc_call *call = PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_call,
+                                                        getThis());
 
   /* "OsO|s" == 1 Object, 1 string, 1 Object, 1 optional string */
   if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "OsO|s", &channel_obj,
@@ -218,7 +220,8 @@ PHP_METHOD(Call, __construct) {
                          "an optional String", 1 TSRMLS_CC);
     return;
   }
-  wrapped_grpc_channel *channel = Z_WRAPPED_GRPC_CHANNEL_P(channel_obj);
+  wrapped_grpc_channel *channel =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_channel, channel_obj);
   if (channel->wrapped == NULL) {
     zend_throw_exception(spl_ce_InvalidArgumentException,
                          "Call cannot be constructed from a closed Channel",
@@ -226,7 +229,8 @@ PHP_METHOD(Call, __construct) {
     return;
   }
   add_property_zval(getThis(), "channel", channel_obj);
-  wrapped_grpc_timeval *deadline = Z_WRAPPED_GRPC_TIMEVAL_P(deadline_obj);
+  wrapped_grpc_timeval *deadline =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, deadline_obj);
   call->wrapped =
     grpc_channel_create_call(channel->wrapped, NULL, GRPC_PROPAGATE_DEFAULTS,
                              completion_queue, method, host_override,
@@ -251,7 +255,8 @@ PHP_METHOD(Call, startBatch) {
   zval *inner_value;
   zval *message_value;
   zval *message_flags;
-  wrapped_grpc_call *call = Z_WRAPPED_GRPC_CALL_P(getThis());
+  wrapped_grpc_call *call = PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_call,
+                                                        getThis());
   
   grpc_op ops[8];
   size_t op_num = 0;
@@ -496,7 +501,8 @@ cleanup:
  * @return string The URI of the endpoint
  */
 PHP_METHOD(Call, getPeer) {
-  wrapped_grpc_call *call = Z_WRAPPED_GRPC_CALL_P(getThis());
+  wrapped_grpc_call *call = PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_call,
+                                                        getThis());
   PHP_GRPC_RETURN_STRING(grpc_call_get_peer(call->wrapped), 1);
 }
 
@@ -506,7 +512,8 @@ PHP_METHOD(Call, getPeer) {
  * @return void
  */
 PHP_METHOD(Call, cancel) {
-  wrapped_grpc_call *call = Z_WRAPPED_GRPC_CALL_P(getThis());
+  wrapped_grpc_call *call = PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_call,
+                                                        getThis());
   grpc_call_cancel(call->wrapped, NULL);
 }
 
@@ -528,8 +535,9 @@ PHP_METHOD(Call, setCredentials) {
   }
 
   wrapped_grpc_call_credentials *creds =
-    Z_WRAPPED_GRPC_CALL_CREDS_P(creds_obj);
-  wrapped_grpc_call *call = Z_WRAPPED_GRPC_CALL_P(getThis());
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_call_credentials, creds_obj);
+  wrapped_grpc_call *call = PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_call,
+                                                        getThis());
 
   grpc_call_error error = GRPC_CALL_ERROR;
   error = grpc_call_set_credentials(call->wrapped, creds->wrapped);

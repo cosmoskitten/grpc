@@ -76,7 +76,8 @@ zval *grpc_php_wrap_server_credentials(grpc_server_credentials
   PHP_GRPC_MAKE_STD_ZVAL(server_credentials_object);
   object_init_ex(server_credentials_object, grpc_ce_server_credentials);
   wrapped_grpc_server_credentials *server_credentials =
-    Z_WRAPPED_GRPC_SERVER_CREDS_P(server_credentials_object);
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_server_credentials,
+                                server_credentials_object);
   server_credentials->wrapped = wrapped;
   return server_credentials_object;
 }

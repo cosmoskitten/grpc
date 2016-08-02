@@ -71,7 +71,8 @@ zval *grpc_php_wrap_timeval(gpr_timespec wrapped TSRMLS_DC) {
   zval *timeval_object;
   PHP_GRPC_MAKE_STD_ZVAL(timeval_object);
   object_init_ex(timeval_object, grpc_ce_timeval);
-  wrapped_grpc_timeval *timeval = Z_WRAPPED_GRPC_TIMEVAL_P(timeval_object);
+  wrapped_grpc_timeval *timeval =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, timeval_object);
   memcpy(&timeval->wrapped, &wrapped, sizeof(gpr_timespec));
   return timeval_object;
 }
@@ -81,7 +82,8 @@ zval *grpc_php_wrap_timeval(gpr_timespec wrapped TSRMLS_DC) {
  * @param long $microseconds The number of microseconds in the interval
  */
 PHP_METHOD(Timeval, __construct) {
-  wrapped_grpc_timeval *timeval = Z_WRAPPED_GRPC_TIMEVAL_P(getThis());
+  wrapped_grpc_timeval *timeval =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, getThis());
   php_grpc_long microseconds;
 
   /* "l" == 1 long */
@@ -111,8 +113,10 @@ PHP_METHOD(Timeval, add) {
                          "add expects a Timeval", 1 TSRMLS_CC);
     return;
   }
-  wrapped_grpc_timeval *self = Z_WRAPPED_GRPC_TIMEVAL_P(getThis());
-  wrapped_grpc_timeval *other = Z_WRAPPED_GRPC_TIMEVAL_P(other_obj);
+  wrapped_grpc_timeval *self =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, getThis());
+  wrapped_grpc_timeval *other =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, other_obj);
   zval *sum;
   PHP_GRPC_MAKE_STD_ZVAL(sum);
   sum =
@@ -137,8 +141,10 @@ PHP_METHOD(Timeval, subtract) {
                          "subtract expects a Timeval", 1 TSRMLS_CC);
     return;
   }
-  wrapped_grpc_timeval *self = Z_WRAPPED_GRPC_TIMEVAL_P(getThis());
-  wrapped_grpc_timeval *other = Z_WRAPPED_GRPC_TIMEVAL_P(other_obj);
+  wrapped_grpc_timeval *self =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, getThis());
+  wrapped_grpc_timeval *other =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, other_obj);
   zval *diff;
   PHP_GRPC_MAKE_STD_ZVAL(diff);
   diff =
@@ -166,8 +172,10 @@ PHP_METHOD(Timeval, compare) {
                          "compare expects two Timevals", 1 TSRMLS_CC);
     return;
   }
-  wrapped_grpc_timeval *a = Z_WRAPPED_GRPC_TIMEVAL_P(a_obj);
-  wrapped_grpc_timeval *b = Z_WRAPPED_GRPC_TIMEVAL_P(b_obj);
+  wrapped_grpc_timeval *a =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, a_obj);
+  wrapped_grpc_timeval *b =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, b_obj);
   long result = gpr_time_cmp(a->wrapped, b->wrapped);
   RETURN_LONG(result);
 }
@@ -192,9 +200,12 @@ PHP_METHOD(Timeval, similar) {
                          "compare expects three Timevals", 1 TSRMLS_CC);
     return;
   }
-  wrapped_grpc_timeval *a = Z_WRAPPED_GRPC_TIMEVAL_P(a_obj);
-  wrapped_grpc_timeval *b = Z_WRAPPED_GRPC_TIMEVAL_P(b_obj);
-  wrapped_grpc_timeval *thresh = Z_WRAPPED_GRPC_TIMEVAL_P(thresh_obj);
+  wrapped_grpc_timeval *a =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, a_obj);
+  wrapped_grpc_timeval *b =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, b_obj);
+  wrapped_grpc_timeval *thresh =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, thresh_obj);
   int result = gpr_time_similar(a->wrapped, b->wrapped, thresh->wrapped);
   RETURN_BOOL(result);
 }
@@ -253,7 +264,8 @@ PHP_METHOD(Timeval, infPast) {
  * @return void
  */
 PHP_METHOD(Timeval, sleepUntil) {
-  wrapped_grpc_timeval *this = Z_WRAPPED_GRPC_TIMEVAL_P(getThis());
+  wrapped_grpc_timeval *this =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_timeval, getThis());
   gpr_sleep_until(this->wrapped);
 }
 

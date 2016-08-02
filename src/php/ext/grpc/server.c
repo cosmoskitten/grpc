@@ -85,7 +85,8 @@ php_grpc_zend_object create_wrapped_grpc_server(zend_class_entry *class_type
  * @param array $args_array The arguments to pass to the server (optional)
  */
 PHP_METHOD(Server, __construct) {
-  wrapped_grpc_server *server = Z_WRAPPED_GRPC_SERVER_P(getThis());
+  wrapped_grpc_server *server =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_server, getThis());
   zval *args_array = NULL;
   grpc_channel_args args;
 
@@ -120,7 +121,8 @@ PHP_METHOD(Server, requestCall) {
   grpc_metadata_array metadata;
   grpc_event event;
 
-  wrapped_grpc_server *server = Z_WRAPPED_GRPC_SERVER_P(getThis());
+  wrapped_grpc_server *server =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_server, getThis());
   zval *result;
   PHP_GRPC_MAKE_STD_ZVAL(result);
   object_init(result);
@@ -167,7 +169,8 @@ PHP_METHOD(Server, requestCall) {
 PHP_METHOD(Server, addHttp2Port) {
   const char *addr;
   php_grpc_int addr_len;
-  wrapped_grpc_server *server = Z_WRAPPED_GRPC_SERVER_P(getThis());
+  wrapped_grpc_server *server =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_server, getThis());
 
   /* "s" == 1 string */
   if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &addr, &addr_len)
@@ -189,7 +192,8 @@ PHP_METHOD(Server, addSecureHttp2Port) {
   const char *addr;
   php_grpc_int addr_len;
   zval *creds_obj;
-  wrapped_grpc_server *server = Z_WRAPPED_GRPC_SERVER_P(getThis());
+  wrapped_grpc_server *server =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_server, getThis());
 
   /* "sO" == 1 string, 1 object */
   if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sO", &addr, &addr_len,
@@ -201,7 +205,7 @@ PHP_METHOD(Server, addSecureHttp2Port) {
     return;
   }
   wrapped_grpc_server_credentials *creds =
-    Z_WRAPPED_GRPC_SERVER_CREDS_P(creds_obj);
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_server_credentials, creds_obj);
   RETURN_LONG(grpc_server_add_secure_http2_port(server->wrapped, addr,
                                                 creds->wrapped));
 }
@@ -211,7 +215,8 @@ PHP_METHOD(Server, addSecureHttp2Port) {
  * @return void
  */
 PHP_METHOD(Server, start) {
-  wrapped_grpc_server *server = Z_WRAPPED_GRPC_SERVER_P(getThis());
+  wrapped_grpc_server *server =
+    PHP_GRPC_GET_WRAPPED_OBJECT(wrapped_grpc_server, getThis());
   grpc_server_start(server->wrapped);
 }
 
