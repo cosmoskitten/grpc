@@ -84,6 +84,9 @@ GPRAPI gpr_thd_id gpr_thd_currentid(void);
    Calling this on a detached thread has unpredictable results. */
 GPRAPI void gpr_thd_join(gpr_thd_id t);
 
+/* Cancels a thread */
+GPRAPI void gpr_thd_cancel(gpr_thd_id t);
+
 #ifdef __cplusplus
 }
 #endif

@@ -860,6 +860,9 @@ extern gpr_thd_currentid_type gpr_thd_currentid_import;
 typedef void(*gpr_thd_join_type)(gpr_thd_id t);
 extern gpr_thd_join_type gpr_thd_join_import;
 #define gpr_thd_join gpr_thd_join_import
+typedef void(*gpr_thd_cancel_type)(gpr_thd_id t);
+extern gpr_thd_cancel_type gpr_thd_cancel_import;
+#define gpr_thd_cancel gpr_thd_cancel_import
 
 void grpc_rb_load_imports(HMODULE library);
 

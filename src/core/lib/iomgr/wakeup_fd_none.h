@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2015, Google Inc.
+ * Copyright 2016, Google Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,52 +31,14 @@
  *
  */
 
-#include <grpc/support/port_platform.h>
+#ifndef GRPC_CORE_LIB_IOMGR_WAKEUP_FD_NONE_H
+#define GRPC_CORE_LIB_IOMGR_WAKEUP_FD_NONE_H
 
-#ifdef GPR_POSIX_WAKEUP_FD
-
-#include <stddef.h>
-#include "src/core/lib/iomgr/wakeup_fd_pipe.h"
 #include "src/core/lib/iomgr/wakeup_fd_posix.h"
-#include "src/core/lib/iomgr/wakeup_fd_none.h"
 
-static const grpc_wakeup_fd_vtable *wakeup_fd_vtable = NULL;
-int grpc_allow_specialized_wakeup_fd = 0;
-int grpc_use_cv_wakeup_fd = 1;
+void grpc_global_cv_fd_table_init();
+void grpc_global_cv_fd_table_shutdown();
 
-void grpc_wakeup_fd_global_init(void) {
-  if (grpc_allow_specialized_wakeup_fd &&
-      grpc_specialized_wakeup_fd_vtable.check_availability()) {
-    wakeup_fd_vtable = &grpc_specialized_wakeup_fd_vtable;
-  } else if (grpc_use_cv_wakeup_fd) {
-    wakeup_fd_vtable = &grpc_cv_wakeup_fd_vtable;
-    grpc_global_cv_fd_table_init();
-  } else {
-    wakeup_fd_vtable = &grpc_pipe_wakeup_fd_vtable;
-  }
-}
+extern grpc_wakeup_fd_vtable grpc_cv_wakeup_fd_vtable;
 
-void grpc_wakeup_fd_global_destroy(void) {
-  if(grpc_use_cv_wakeup_fd) {
-    grpc_global_cv_fd_table_shutdown();
-  }
-  wakeup_fd_vtable = NULL;
-}
-
-grpc_error *grpc_wakeup_fd_init(grpc_wakeup_fd *fd_info) {
-  return wakeup_fd_vtable->init(fd_info);
-}
-
-grpc_error *grpc_wakeup_fd_consume_wakeup(grpc_wakeup_fd *fd_info) {
-  return wakeup_fd_vtable->consume(fd_info);
-}
-
-grpc_error *grpc_wakeup_fd_wakeup(grpc_wakeup_fd *fd_info) {
-  return wakeup_fd_vtable->wakeup(fd_info);
-}
-
-void grpc_wakeup_fd_destroy(grpc_wakeup_fd *fd_info) {
-  wakeup_fd_vtable->destroy(fd_info);
-}
-
-#endif /* GPR_POSIX_WAKEUP_FD */
+#endif /* GRPC_CORE_LIB_IOMGR_WAKEUP_FD_NONE_H */

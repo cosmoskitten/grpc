@@ -130,6 +130,7 @@ CORE_SOURCE_FILES = [
   'src/core/lib/iomgr/unix_sockets_posix.c',
   'src/core/lib/iomgr/unix_sockets_posix_noop.c',
   'src/core/lib/iomgr/wakeup_fd_eventfd.c',
+  'src/core/lib/iomgr/wakeup_fd_none.c',
   'src/core/lib/iomgr/wakeup_fd_nospecial.c',
   'src/core/lib/iomgr/wakeup_fd_pipe.c',
   'src/core/lib/iomgr/wakeup_fd_posix.c',

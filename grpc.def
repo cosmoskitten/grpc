@@ -265,3 +265,4 @@ EXPORTS
     gpr_thd_options_is_joinable
     gpr_thd_currentid
     gpr_thd_join
+    gpr_thd_cancel
