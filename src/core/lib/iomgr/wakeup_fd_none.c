@@ -127,28 +127,35 @@ int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
       idx++;
     }
   }
-  pargs.fds = sockfds;
-  pargs.nfds = nsockfds;
-  pargs.timeout = timeout;
-  pargs.cv = &pollcv;
+  if (nsockfds > 0) {
+    pargs.fds = sockfds;
+    pargs.nfds = nsockfds;
+    pargs.timeout = timeout;
+    pargs.cv = &pollcv;
 
-  opt = gpr_thd_options_default();
-  gpr_thd_options_set_joinable(&opt);
-  gpr_thd_new(&t_id, &run_poll, &pargs, &opt);
-  //We want the poll() thread to trigger the deadline, so wait forever here
-  gpr_cv_wait(&pollcv, &g_mu, gpr_inf_future(GPR_CLOCK_MONOTONIC));
-  gpr_thd_cancel(t_id);
+    opt = gpr_thd_options_default();
+    gpr_thd_options_set_joinable(&opt);
+    gpr_thd_new(&t_id, &run_poll, &pargs, &opt);
+    //We want the poll() thread to trigger the deadline, so wait forever here
+    gpr_cv_wait(&pollcv, &g_mu, gpr_inf_future(GPR_CLOCK_MONOTONIC));
+    gpr_thd_cancel(t_id);
 
-  //The lock may be needed by the thread because the only cancellation
-  //point is the poll() call
-  gpr_mu_unlock(&g_mu);
-  gpr_thd_join(t_id);
-  gpr_mu_lock(&g_mu);
+    //The lock may be needed by the thread because the only cancellation
+    //point is the poll() call
+    gpr_mu_unlock(&g_mu);
+    gpr_thd_join(t_id);
+    gpr_mu_lock(&g_mu);
 
-  res = pargs.result;
-  if(res == -1) {
-    errno = pargs.err;
+    res = pargs.result;
+    if(res == -1) {
+      errno = pargs.err;
+    }
+  } else {
+    gpr_timespec deadline = gpr_now(GPR_CLOCK_REALTIME);
+    deadline = gpr_time_add(deadline, gpr_time_from_millis(timeout, GPR_TIMESPAN));
+    gpr_cv_wait(&pollcv, &g_mu, deadline);
   }
+
   idx = 0;
   for(i = 0; i < nfds; i++) {
     if(fds[i].fd < 0 && (fds[i].events & POLLIN)) {
