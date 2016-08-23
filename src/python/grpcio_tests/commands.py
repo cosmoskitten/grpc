@@ -29,7 +29,7 @@
 
 """Provides distutils command classes for the gRPC Python setup process."""
 
-import distutils
+from distutils import errors as _errors
 import glob
 import os
 import os.path
@@ -190,7 +190,7 @@ class RunInterop(test.test):
 
   def finalize_options(self):
     if self.client and self.server:
-      raise DistutilsOptionError('you may only specify one of client or server')
+      raise _errors.DistutilsOptionError('you may only specify one of client or server')
 
   def run(self):
     if self.distribution.install_requires:
