@@ -32,6 +32,7 @@
  */
 
 #include <errno.h>
+#include <string.h>
 
 #include <grpc/support/alloc.h>
 #include <grpc/support/log.h>
@@ -44,6 +45,7 @@
 
 #define MAX_TABLE_RESIZE 256
 #define DEFAULT_TABLE_SIZE 16
+#define POLL_PERIOD_MS 1000
 
 #define FD_TO_IDX(fd) (-(fd) - 1)
 #define IDX_TO_FD(idx) (-(idx) - 1)
@@ -66,25 +68,57 @@ typedef struct cv_fd_table {
   grpc_poll_function_type poll;
 } cv_fd_table;
 
+typedef struct poll_result {
+  struct pollfd *fds;
+  gpr_cv* cv;
+  int completed;
+  int res;
+  int err;
+} poll_result;
+
 typedef struct poll_args {
   struct pollfd *fds;
   nfds_t nfds;
   int timeout;
-  gpr_cv* cv;
-  int result;
-  int err;
+  poll_result* result;
 } poll_args;
 
 static gpr_mu g_mu;
 static cv_fd_table g_cvfds;
 
+// Some environments do not implement pthread_cancel(), so we run
+// this poll in a detached thread with a copy of the arguments,
+// wake up periodically and check if the calling thread is still
+// waiting on a result
 static void run_poll(void *arg) {
+  int result, timeout;
   poll_args* pargs = (poll_args*)arg;
-  pargs->result = 0; //The result if poll() is interrupted
-  pargs->result = g_cvfds.poll(pargs->fds, pargs->nfds, pargs->timeout);
-  pargs->err = errno;
   gpr_mu_lock(&g_mu);
-  gpr_cv_signal(pargs->cv);
+  if(pargs->result != NULL) {
+    while(pargs->result != NULL) {
+      if(pargs->timeout < 0) {
+        timeout = POLL_PERIOD_MS;
+      } else {
+        timeout = GPR_MIN(POLL_PERIOD_MS, pargs->timeout);
+        pargs->timeout -= timeout;
+      }
+      gpr_mu_unlock(&g_mu);
+      result = g_cvfds.poll(pargs->fds, pargs->nfds, timeout);
+      gpr_mu_lock(&g_mu);
+      if(pargs->result != NULL) {
+        if(result !=0 || pargs->timeout == 0) {
+          memcpy(pargs->result->fds, pargs->fds, sizeof(struct pollfd) * pargs->nfds);
+          pargs->result->res = result;
+          pargs->result->err = errno;
+          pargs->result->completed = 1;
+          gpr_cv_signal(pargs->result->cv);
+          break;
+        }
+      }
+    }
+  }
+  gpr_free(pargs->fds);
+  gpr_free(pargs);
   gpr_mu_unlock(&g_mu);
 }
 
@@ -97,7 +131,8 @@ int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
   gpr_cv pollcv;
   gpr_thd_id t_id;
   gpr_thd_options opt;
-  poll_args pargs;
+  poll_args* pargs;
+  poll_result* pres;
   gpr_mu_lock(&g_mu);
   gpr_cv_init(&pollcv);
   for(i = 0; i < nfds; i++) {
@@ -127,35 +162,40 @@ int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
       idx++;
     }
   }
+
+  errno = 0;
   if (nsockfds > 0) {
-    pargs.fds = sockfds;
-    pargs.nfds = nsockfds;
-    pargs.timeout = timeout;
-    pargs.cv = &pollcv;
+    pres = gpr_malloc(sizeof(struct poll_result));
+    pargs = gpr_malloc(sizeof(struct poll_args));
+
+    pargs->fds = gpr_malloc(sizeof(struct pollfd) * nsockfds);
+    memcpy(pargs->fds, sockfds, sizeof(struct pollfd) * nsockfds);
+    pargs->nfds = nsockfds;
+    pargs->timeout = timeout;
+    pargs->result = pres;
+
+    pres->fds = sockfds;
+    pres->cv = &pollcv;
+    pres->completed = 0;
+    pres->res = 0;
+    pres->err = 0;
 
     opt = gpr_thd_options_default();
-    gpr_thd_options_set_joinable(&opt);
-    gpr_thd_new(&t_id, &run_poll, &pargs, &opt);
+    gpr_thd_options_set_detached(&opt);
+    gpr_thd_new(&t_id, &run_poll, pargs, &opt);
     //We want the poll() thread to trigger the deadline, so wait forever here
     gpr_cv_wait(&pollcv, &g_mu, gpr_inf_future(GPR_CLOCK_MONOTONIC));
-    gpr_thd_cancel(t_id);
-
-    //The lock may be needed by the thread because the only cancellation
-    //point is the poll() call
-    gpr_mu_unlock(&g_mu);
-    gpr_thd_join(t_id);
-    gpr_mu_lock(&g_mu);
-
-    res = pargs.result;
-    if(res == -1) {
-      errno = pargs.err;
+    if(!pres->completed) {
+      pargs->result = NULL;
     }
+    res = pres->res;
+    errno = pres->err;
   } else {
     gpr_timespec deadline = gpr_now(GPR_CLOCK_REALTIME);
     deadline = gpr_time_add(deadline, gpr_time_from_millis(timeout, GPR_TIMESPAN));
     gpr_cv_wait(&pollcv, &g_mu, deadline);
+    res = 0;
   }
-
   idx = 0;
   for(i = 0; i < nfds; i++) {
     if(fds[i].fd < 0 && (fds[i].events & POLLIN)) {
