@@ -31,6 +31,7 @@
  *
  */
 
+#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 
@@ -83,13 +84,12 @@ typedef struct poll_args {
   poll_result* result;
 } poll_args;
 
-static gpr_mu g_mu;
+static gpr_mu g_mu = PTHREAD_MUTEX_INITIALIZER;
 static cv_fd_table g_cvfds;
 
 // Some environments do not implement pthread_cancel(), so we run
-// this poll in a detached thread with a copy of the arguments,
-// wake up periodically and check if the calling thread is still
-// waiting on a result
+// this poll in a detached thread, and wake up periodically and
+// check if the calling thread is still waiting on a result
 static void run_poll(void *arg) {
   int result, timeout;
   poll_args* pargs = (poll_args*)arg;
@@ -184,16 +184,21 @@ int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     gpr_thd_options_set_detached(&opt);
     gpr_thd_new(&t_id, &run_poll, pargs, &opt);
     //We want the poll() thread to trigger the deadline, so wait forever here
+    fprintf(stderr, "WAITING FOR POLL\n");
     gpr_cv_wait(&pollcv, &g_mu, gpr_inf_future(GPR_CLOCK_MONOTONIC));
     if(!pres->completed) {
+      fprintf(stderr, "POLL INTERRUPTED!\n");
       pargs->result = NULL;
     }
     res = pres->res;
     errno = pres->err;
+    gpr_free(pres);
   } else {
     gpr_timespec deadline = gpr_now(GPR_CLOCK_REALTIME);
     deadline = gpr_time_add(deadline, gpr_time_from_millis(timeout, GPR_TIMESPAN));
+    fprintf(stderr, "Waiting for event!\n");
     gpr_cv_wait(&pollcv, &g_mu, deadline);
+    fprintf(stderr, "Event Occurred!\n");
     res = 0;
   }
   idx = 0;
@@ -257,7 +262,7 @@ static grpc_error* cv_fd_init(grpc_wakeup_fd* fd_info) {
 }
 
 void grpc_global_cv_fd_table_init() {
-  gpr_mu_init(&g_mu);
+  gpr_mu_lock(&g_mu);
   g_cvfds.size = DEFAULT_TABLE_SIZE;
   g_cvfds.cvfds = gpr_malloc(sizeof(fd_node) * DEFAULT_TABLE_SIZE);
   g_cvfds.free_fds = NULL;
@@ -270,12 +275,14 @@ void grpc_global_cv_fd_table_init() {
   //Override the poll function with one that supports cvfds
   g_cvfds.poll = grpc_poll_function;
   grpc_poll_function = &cvfd_poll;
+  gpr_mu_unlock(&g_mu);
 }
 
 void grpc_global_cv_fd_table_shutdown() {
-  gpr_mu_destroy(&g_mu);
+  gpr_mu_lock(&g_mu);
   gpr_free(g_cvfds.cvfds);
   grpc_poll_function = g_cvfds.poll;
+  gpr_mu_unlock(&g_mu);
 }
 
 static grpc_error* cv_fd_wakeup(grpc_wakeup_fd* fd_info) {
