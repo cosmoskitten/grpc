@@ -184,10 +184,8 @@ int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     gpr_thd_options_set_detached(&opt);
     gpr_thd_new(&t_id, &run_poll, pargs, &opt);
     //We want the poll() thread to trigger the deadline, so wait forever here
-    fprintf(stderr, "WAITING FOR POLL\n");
     gpr_cv_wait(&pollcv, &g_mu, gpr_inf_future(GPR_CLOCK_MONOTONIC));
     if(!pres->completed) {
-      fprintf(stderr, "POLL INTERRUPTED!\n");
       pargs->result = NULL;
     }
     res = pres->res;
@@ -196,9 +194,7 @@ int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
   } else {
     gpr_timespec deadline = gpr_now(GPR_CLOCK_REALTIME);
     deadline = gpr_time_add(deadline, gpr_time_from_millis(timeout, GPR_TIMESPAN));
-    fprintf(stderr, "Waiting for event!\n");
     gpr_cv_wait(&pollcv, &g_mu, deadline);
-    fprintf(stderr, "Event Occurred!\n");
     res = 0;
   }
   idx = 0;
@@ -280,8 +276,8 @@ void grpc_global_cv_fd_table_init() {
 
 void grpc_global_cv_fd_table_shutdown() {
   gpr_mu_lock(&g_mu);
-  gpr_free(g_cvfds.cvfds);
   grpc_poll_function = g_cvfds.poll;
+  gpr_free(g_cvfds.cvfds);
   gpr_mu_unlock(&g_mu);
 }
 
