@@ -31,21 +31,12 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include "byte_buffer.h"
 
 #include <php.h>
-#include <php_ini.h>
-#include <ext/standard/info.h>
-#include <ext/spl/spl_exceptions.h>
-#include "php_grpc.h"
 
 #include <string.h>
 
-#include "byte_buffer.h"
-
-#include <grpc/grpc.h>
 #include <grpc/byte_buffer_reader.h>
 #include <grpc/support/slice.h>
 

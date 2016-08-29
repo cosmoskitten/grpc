@@ -43,8 +43,6 @@
 #include <ext/standard/info.h>
 #include "php_grpc.h"
 
-#include <grpc/grpc.h>
-
 /* Class entry for the Call PHP class */
 extern zend_class_entry *grpc_ce_call;
 

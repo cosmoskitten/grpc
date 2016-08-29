@@ -43,8 +43,6 @@
 #include <ext/standard/info.h>
 #include "php_grpc.h"
 
-#include <grpc/grpc.h>
-
 /* Class entry for the PHP Channel class */
 extern zend_class_entry *grpc_ce_channel;
 
