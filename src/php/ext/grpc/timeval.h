@@ -43,8 +43,6 @@
 #include <ext/standard/info.h>
 #include "php_grpc.h"
 
-#include <grpc/support/time.h>
-
 /* Class entry for the Timeval PHP Class */
 extern zend_class_entry *grpc_ce_timeval;
 

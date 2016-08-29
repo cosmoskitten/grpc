@@ -43,7 +43,6 @@
 #include <ext/standard/info.h>
 #include "php_grpc.h"
 
-#include <grpc/grpc.h>
 #include <grpc/grpc_security.h>
 
 /* Class entry for the Server_Credentials PHP class */

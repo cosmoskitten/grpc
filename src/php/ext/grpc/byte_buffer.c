@@ -38,7 +38,6 @@
 #include <string.h>
 
 #include <grpc/byte_buffer_reader.h>
-#include <grpc/support/slice.h>
 
 grpc_byte_buffer *string_to_byte_buffer(char *string, size_t length) {
   gpr_slice slice = gpr_slice_from_copied_buffer(string, length);
