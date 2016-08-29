@@ -31,15 +31,15 @@
  *
  */
 
-#include "channel_credentials.h"
+#include "call_credentials.h"
 
 #include <ext/spl/spl_exceptions.h>
 
 #include <zend_exceptions.h>
 #include <zend_hash.h>
 
-#include "call_credentials.h"
 #include "call.h"
+#include "channel_credentials.h"
 
 zend_class_entry *grpc_ce_call_credentials;
 #if PHP_MAJOR_VERSION >= 7
