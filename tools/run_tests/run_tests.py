@@ -884,6 +884,41 @@ def runs_per_test_type(arg_str):
         msg = '\'{}\' is not a positive integer or \'inf\''.format(arg_str)
         raise argparse.ArgumentTypeError(msg)
 
+_COMPILER_CHOICES = ('default',
+                     'gcc4.4', 'gcc4.6', 'gcc4.9', 'gcc5.3',
+                     'clang3.4', 'clang3.5', 'clang3.6', 'clang3.7',
+                     'vs2010', 'vs2013', 'vs2015',
+                     'python2.7', 'python3.4',
+                     'node0.12', 'node4', 'node5',
+                     'coreclr',)
+
+
+def _is_travis_enabled():
+  for arg in sys.argv:
+    if arg == "--travis" or arg == "-t":
+      return True
+  return False
+
+
+# This method is required as a workaround for issue #7934. This would not
+# have been necessary if the testing infrastructure provided provisions for
+# supporting different configurations for different branches on the repository.
+# TODO (https://github.com/grpc/grpc/issues/7934)
+def _compiler_choices(compiler):
+  if _is_travis_enabled():
+    if compiler in _COMPILER_CHOICES:
+      return compiler
+    else:
+      return 'python2.7'
+  else:
+    if compiler in _COMPILER_CHOICES:
+      return compiler
+    else:
+      raise argparse.ArgumentTypeError("{} is not a valid compiler option; "
+                                       "please use one from {}.".format(
+        compiler, _COMPILER_CHOICES))
+
+
 # parse command line
 argp = argparse.ArgumentParser(description='Run grpc tests.')
 argp.add_argument('-c', '--config',
@@ -933,14 +968,8 @@ argp.add_argument('--arch',
                   default='default',
                   help='Selects architecture to target. For some platforms "default" is the only supported choice.')
 argp.add_argument('--compiler',
-                  choices=['default',
-                           'gcc4.4', 'gcc4.6', 'gcc4.9', 'gcc5.3',
-                           'clang3.4', 'clang3.5', 'clang3.6', 'clang3.7',
-                           'vs2010', 'vs2013', 'vs2015',
-                           'python2.7', 'python3.4',
-                           'node0.12', 'node4', 'node5',
-                           'coreclr'],
                   default='default',
+                  type=_compiler_choices,
                   help='Selects compiler to use. Allowed values depend on the platform and language.')
 argp.add_argument('--build_only',
                   default=False,
