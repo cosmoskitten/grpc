@@ -38,8 +38,6 @@
 #include <zend_exceptions.h>
 #include <zend_hash.h>
 
-#include <stdbool.h>
-
 #include <grpc/support/alloc.h>
 
 #include "call_credentials.h"

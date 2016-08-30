@@ -37,8 +37,6 @@
 
 #include <zend_exceptions.h>
 
-#include <stdbool.h>
-
 zend_class_entry *grpc_ce_timeval;
 #if PHP_MAJOR_VERSION >= 7
 static zend_object_handlers timeval_ce_handlers;

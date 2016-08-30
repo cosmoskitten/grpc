@@ -37,8 +37,6 @@
 
 #include <zend_exceptions.h>
 
-#include <stdbool.h>
-
 #include <grpc/grpc_security.h>
 
 #include "call.h"
