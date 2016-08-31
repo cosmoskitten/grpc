@@ -36,7 +36,6 @@
 #include <ext/spl/spl_exceptions.h>
 
 #include <zend_exceptions.h>
-#include <zend_hash.h>
 
 #include <grpc/support/alloc.h>
 

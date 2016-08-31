@@ -35,8 +35,6 @@
 
 #include <php.h>
 
-#include <string.h>
-
 #include <grpc/byte_buffer_reader.h>
 
 grpc_byte_buffer *string_to_byte_buffer(char *string, size_t length) {

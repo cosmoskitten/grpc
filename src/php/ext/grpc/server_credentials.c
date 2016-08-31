@@ -36,7 +36,6 @@
 #include <ext/spl/spl_exceptions.h>
 
 #include <zend_exceptions.h>
-#include <zend_hash.h>
 
 zend_class_entry *grpc_ce_server_credentials;
 #if PHP_MAJOR_VERSION >= 7
