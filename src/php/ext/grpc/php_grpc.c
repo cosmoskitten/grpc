@@ -49,7 +49,9 @@
 #include <ext/standard/info.h>
 #include "php_grpc.h"
 
-// ZEND_DECLARE_MODULE_GLOBALS(grpc)
+/* If you declare any globals in php_grpc.h uncomment this:
+ZEND_DECLARE_MODULE_GLOBALS(grpc)
+*/
 
 /* {{{ grpc_functions[]
  *
@@ -63,9 +65,7 @@ const zend_function_entry grpc_functions[] = {
 /* {{{ grpc_module_entry
  */
 zend_module_entry grpc_module_entry = {
-#if ZEND_MODULE_API_NO >= 20010901
   STANDARD_MODULE_HEADER,
-#endif
   "grpc",
   grpc_functions,
   PHP_MINIT(grpc),
@@ -73,10 +73,9 @@ zend_module_entry grpc_module_entry = {
   NULL,
   NULL,
   PHP_MINFO(grpc),
-#if ZEND_MODULE_API_NO >= 20010901
   PHP_GRPC_VERSION,
-#endif
-  STANDARD_MODULE_PROPERTIES};
+  STANDARD_MODULE_PROPERTIES
+};
 /* }}} */
 
 #ifdef COMPILE_DL_GRPC
