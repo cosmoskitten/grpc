@@ -41,7 +41,7 @@
 
 #include "completion_queue.h"
 #include "channel_credentials.h"
-#include "server.h"
+//#include "server.h"
 #include "timeval.h"
 
 zend_class_entry *grpc_ce_channel;

@@ -38,7 +38,7 @@
 #include <zend_exceptions.h>
 
 #include "call.h"
-#include "channel_credentials.h"
+//#include "channel_credentials.h"
 
 zend_class_entry *grpc_ce_call_credentials;
 #if PHP_MAJOR_VERSION >= 7
