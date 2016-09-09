@@ -38,6 +38,8 @@
 
 #ifdef GPR_SUPPORT_CHANNELS_FROM_FD
 
+#include <fcntl.h>
+
 #include <grpc/support/alloc.h>
 #include <grpc/support/string_util.h>
 
@@ -56,6 +58,9 @@ void grpc_server_add_insecure_channel_from_fd(grpc_server *server,
 
   char *name;
   gpr_asprintf(&name, "fd:%d", fd);
+
+  int flags = fcntl(fd, F_GETFL, 0);
+  GPR_ASSERT(fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0);
 
   grpc_endpoint *server_endpoint = grpc_tcp_create(
       grpc_fd_create(fd, name), GRPC_TCP_DEFAULT_READ_SLICE_SIZE, name);
