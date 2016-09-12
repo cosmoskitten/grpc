@@ -39,6 +39,7 @@ class CallCredentials2Test extends PHPUnit_Framework_TestCase
         $ca = file_get_contents(dirname(__FILE__).'/../data/ca.pem');
         $key = file_get_contents(dirname(__FILE__).'/../data/server1.key');
         $pem = file_get_contents(dirname(__FILE__).'/../data/server1.pem');
+
         $credentials = Grpc\ChannelCredentials::createSsl($ca);
         $server_credentials = Grpc\ServerCredentials::createSsl(
             null,
