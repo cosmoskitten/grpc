@@ -35,6 +35,58 @@
 
 #include "src/compiler/config.h"
 #include "src/compiler/python_generator.h"
+#include "src/compiler/protobuf_plugin.h"
+
+using grpc::protobuf::FileDescriptor;
+using grpc::protobuf::compiler::GeneratorContext;
+using grpc::protobuf::io::CodedOutputStream;
+using grpc::protobuf::io::ZeroCopyOutputStream;
+
+
+namespace grpc_python_generator {
+
+  GeneratorConfiguration::GeneratorConfiguration()
+      : grpc_package_root("grpc"), beta_package_root("grpc.beta") {}
+
+  PythonGrpcGenerator::PythonGrpcGenerator(const GeneratorConfiguration& config)
+      : config_(config) {}
+
+  PythonGrpcGenerator::~PythonGrpcGenerator() {}
+
+  bool PythonGrpcGenerator::Generate(const FileDescriptor* file,
+                                     const grpc::string& parameter,
+                                     GeneratorContext* context,
+                                     grpc::string* error) const {
+    // Get output file name.
+    grpc::string file_name;
+
+    ProtoBufFile pbfile(file);
+    
+    static const int proto_suffix_length = strlen(".proto");
+    if (file->name().size() > static_cast<size_t>(proto_suffix_length) &&
+        file->name().find_last_of(".proto") == file->name().size() - 1) {
+      file_name =
+          file->name().substr(0, file->name().size() - proto_suffix_length) +
+          "_pb2.py";
+    } else {
+      *error = "Invalid proto file name. Proto file must end with .proto";
+      return false;
+    }
+
+    std::unique_ptr<ZeroCopyOutputStream> output(
+        context->OpenForInsert(file_name, "module_scope"));
+    CodedOutputStream coded_out(output.get());
+    bool success = false;
+    grpc::string code = "";
+    tie(success, code) = grpc_python_generator::GetServices(&pbfile, config_);
+    if (success) {
+      coded_out.WriteRaw(code.data(), code.size());
+      return true;
+    } else {
+      return false;
+    }
+  }
+} // namespace grpc_python_generator
 
 int main(int argc, char* argv[]) {
   grpc_python_generator::GeneratorConfiguration config;
