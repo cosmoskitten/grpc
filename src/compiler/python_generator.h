@@ -37,6 +37,7 @@
 #include <utility>
 
 #include "src/compiler/config.h"
+#include "src/compiler/schema_interface.h"
 
 namespace grpc_python_generator {
 
@@ -63,7 +64,7 @@ class PythonGrpcGenerator : public grpc::protobuf::compiler::CodeGenerator {
 };
 
 std::pair<bool, grpc::string> GetServices(
-    const grpc::protobuf::FileDescriptor* file,
+    const grpc_generator::File* file,
     const GeneratorConfiguration& config);
 
 }  // namespace grpc_python_generator
