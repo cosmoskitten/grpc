@@ -341,6 +341,11 @@ namespace Grpc.Core.Internal
             get { return true; }
         }
 
+        protected override Exception GetCallResultException()
+        {
+            return new RpcException(finishedStatus.Value.Status);
+        }
+
         protected override Task CheckSendAllowedOrEarlyResult()
         {
             var earlyResult = CheckSendPreconditionsClientSide();
@@ -472,6 +477,11 @@ namespace Grpc.Core.Internal
 
                 var status = receivedStatus.Status;
 
+                if (delayedStreamingWriteTcs != null)
+                {
+                    delayedStreamingWriteTcs.SetException(new RpcException(status));
+                }
+
                 if (status.StatusCode != StatusCode.OK)
                 {
                     unaryResponseTcs.SetException(new RpcException(status));
@@ -499,6 +509,11 @@ namespace Grpc.Core.Internal
             }
 
             var status = receivedStatus.Status;
+
+            if (delayedStreamingWriteTcs != null)
+            {
+                delayedStreamingWriteTcs.SetException(new RpcException(status));
+            }
 
             if (status.StatusCode != StatusCode.OK)
             {

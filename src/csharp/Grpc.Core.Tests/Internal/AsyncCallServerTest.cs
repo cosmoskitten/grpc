@@ -33,6 +33,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
@@ -149,10 +150,14 @@ namespace Grpc.Core.Internal.Tests
 
             var writeTask = responseStream.WriteAsync("request1");
             fakeCall.SendCompletionHandler(false);
-            // TODO(jtattermusch): should we throw a different exception type instead?
-            Assert.ThrowsAsync(typeof(InvalidOperationException), async () => await writeTask);
+
+            // The failed write will wait for call to finish.
+            Assert.IsFalse(writeTask.IsCompleted);
 
             fakeCall.ReceivedCloseOnServerHandler(true, cancelled: true);
+
+            Assert.ThrowsAsync(typeof(IOException), async () => await writeTask);
+
             AssertFinished(asyncCallServer, fakeCall, finishedTask);
         }
 

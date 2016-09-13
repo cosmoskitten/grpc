@@ -68,6 +68,7 @@ namespace Grpc.Core.Internal
 
         protected TaskCompletionSource<TRead> streamingReadTcs;  // Completion of a pending streaming read if not null.
         protected TaskCompletionSource<object> streamingWriteTcs;  // Completion of a pending streaming write or send close from client if not null.
+        protected TaskCompletionSource<object> delayedStreamingWriteTcs;
         protected TaskCompletionSource<object> sendStatusFromServerTcs;
 
         protected bool readingDone;  // True if last read (i.e. read with null payload) was already received.
@@ -200,6 +201,12 @@ namespace Grpc.Core.Internal
             get;
         }
 
+        /// <summary>
+        /// Returns an exception with the same details as the one was used to indicate the result of this call.
+        /// Don't call this method until the call has finished.
+        /// </summary>
+        protected abstract Exception GetCallResultException();
+
         private void ReleaseResources()
         {
             if (call != null)
@@ -252,18 +259,32 @@ namespace Grpc.Core.Internal
         /// </summary>
         protected void HandleSendFinished(bool success)
         {
+            bool alreadyFinished;
             TaskCompletionSource<object> origTcs = null;
             lock (myLock)
             {
+                alreadyFinished = finished;
                 origTcs = streamingWriteTcs;
                 streamingWriteTcs = null;
+
+                if (!success && !alreadyFinished)
+                {
+                    // We should be setting this only once per call, following writes will be short circuited.
+                    GrpcPreconditions.CheckState(delayedStreamingWriteTcs == null);
+                    delayedStreamingWriteTcs = origTcs;
+                }
 
                 ReleaseResourcesIfPossible();
             }
 
             if (!success)
             {
-                origTcs.SetException(new InvalidOperationException("Send failed"));
+                if (alreadyFinished)
+                {
+                    origTcs.SetException(GetCallResultException());
+                }
+                // If the call hasn't finished yet, we've already registered a delayed completion source
+                // that will be triggered once the call finishes.
             }
             else
             {
@@ -283,7 +304,7 @@ namespace Grpc.Core.Internal
 
             if (!success)
             {
-                sendStatusFromServerTcs.SetException(new InvalidOperationException("Error sending status from server."));
+                sendStatusFromServerTcs.SetException(new IOException("Error sending status from server."));
             }
             else
             {

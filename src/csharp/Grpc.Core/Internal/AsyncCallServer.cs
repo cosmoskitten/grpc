@@ -33,6 +33,7 @@
 
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -193,6 +194,12 @@ namespace Grpc.Core.Internal
             get { return false; }
         }
 
+        protected override Exception GetCallResultException()
+        {
+            // Based on discussion in #7223, this needs to be either IOException or RpcException.
+            return new IOException();
+        }
+
         protected override void OnAfterReleaseResources()
         {
             server.RemoveCallReference(this);
@@ -232,6 +239,11 @@ namespace Grpc.Core.Internal
             if (cancelled)
             {
                 cancellationTokenSource.Cancel();
+            }
+
+            if (delayedStreamingWriteTcs != null)
+            {
+                delayedStreamingWriteTcs.SetException(GetCallResultException());
             }
 
             finishedServersideTcs.SetResult(null);
