@@ -194,10 +194,9 @@ namespace Grpc.Core.Internal
             get { return false; }
         }
 
-        protected override Exception GetCallResultException()
+        protected override Exception GetRpcExceptionClientOnly()
         {
-            // Based on discussion in #7223, this needs to be either IOException or RpcException.
-            return new IOException();
+            throw new InvalidOperationException("Call be only called for client calls");
         }
 
         protected override void OnAfterReleaseResources()
@@ -239,11 +238,6 @@ namespace Grpc.Core.Internal
             if (cancelled)
             {
                 cancellationTokenSource.Cancel();
-            }
-
-            if (delayedStreamingWriteTcs != null)
-            {
-                delayedStreamingWriteTcs.SetException(GetCallResultException());
             }
 
             finishedServersideTcs.SetResult(null);

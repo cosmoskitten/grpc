@@ -202,10 +202,10 @@ namespace Grpc.Core.Internal
         }
 
         /// <summary>
-        /// Returns an exception with the same details as the one was used to indicate the result of this call.
-        /// Don't call this method until the call has finished.
+        /// Returns an exception to throw for a failed send operation.
+        /// It is only allowed to call this method for a call that has already finished.
         /// </summary>
-        protected abstract Exception GetCallResultException();
+        protected abstract Exception GetRpcExceptionClientOnly();
 
         private void ReleaseResources()
         {
@@ -259,19 +259,19 @@ namespace Grpc.Core.Internal
         /// </summary>
         protected void HandleSendFinished(bool success)
         {
-            bool alreadyFinished;
+            bool delayCompletion = false;
             TaskCompletionSource<object> origTcs = null;
             lock (myLock)
             {
-                alreadyFinished = finished;
                 origTcs = streamingWriteTcs;
                 streamingWriteTcs = null;
 
-                if (!success && !alreadyFinished)
+                if (!success && !finished && IsClient)
                 {
                     // We should be setting this only once per call, following writes will be short circuited.
-                    GrpcPreconditions.CheckState(delayedStreamingWriteTcs == null);
+                    GrpcPreconditions.CheckState (delayedStreamingWriteTcs == null);
                     delayedStreamingWriteTcs = origTcs;
+                    delayCompletion = true;
                 }
 
                 ReleaseResourcesIfPossible();
@@ -279,12 +279,10 @@ namespace Grpc.Core.Internal
 
             if (!success)
             {
-                if (alreadyFinished)
+                if (!delayCompletion)
                 {
-                    origTcs.SetException(GetCallResultException());
+                    origTcs.SetException(IsClient ? GetRpcExceptionClientOnly() : new IOException("Error sending from server."));
                 }
-                // If the call hasn't finished yet, we've already registered a delayed completion source
-                // that will be triggered once the call finishes.
             }
             else
             {

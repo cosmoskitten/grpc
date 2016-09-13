@@ -150,14 +150,9 @@ namespace Grpc.Core.Internal.Tests
 
             var writeTask = responseStream.WriteAsync("request1");
             fakeCall.SendCompletionHandler(false);
-
-            // The failed write will wait for call to finish.
-            Assert.IsFalse(writeTask.IsCompleted);
-
-            fakeCall.ReceivedCloseOnServerHandler(true, cancelled: true);
-
             Assert.ThrowsAsync(typeof(IOException), async () => await writeTask);
 
+            fakeCall.ReceivedCloseOnServerHandler(true, cancelled: true);
             AssertFinished(asyncCallServer, fakeCall, finishedTask);
         }
 
