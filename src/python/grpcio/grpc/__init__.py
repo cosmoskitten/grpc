@@ -1208,7 +1208,7 @@ def secure_channel(target, credentials, options=None):
   return _channel.Channel(target, options, credentials._credentials)
 
 
-def server(thread_pool, handlers=None):
+def server(thread_pool, handlers=None, options=None):
   """Creates a Server with which RPCs can be serviced.
 
   Args:
@@ -1219,12 +1219,15 @@ def server(thread_pool, handlers=None):
       only handlers the server will use to service RPCs; other handlers may
       later be added by calling add_generic_rpc_handlers any time before the
       returned Server is started.
+    options: A sequence of string-value pairs according to which to configure
+      the created server
 
   Returns:
     A Server with which RPCs can be serviced.
   """
   from grpc import _server
-  return _server.Server(thread_pool, () if handlers is None else handlers)
+  return _server.Server(thread_pool, () if handlers is None else handlers,
+                        options)
 
 
 ###################################  __all__  #################################

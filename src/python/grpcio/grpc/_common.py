@@ -75,6 +75,11 @@ STATUS_CODE_TO_CYGRPC_STATUS_CODE = {
         CYGRPC_STATUS_CODE_TO_STATUS_CODE)
 }
 
+if six.PY3:
+  str_type = str
+else:
+  str_type = basestring
+
 
 def encode(s):
   if isinstance(s, bytes):
@@ -92,6 +97,19 @@ def decode(b):
     except UnicodeDecodeError:
       logging.exception('Invalid encoding on {}'.format(b))
       return b.decode('latin1')
+
+
+def channel_args(options):
+  if options is None:
+    return None
+  else:
+    channel_args = []
+    for key, value in options:
+      if isinstance(value, str_type):
+        channel_args.append(cygrpc.ChannelArg(encode(key), encode(value)))
+      else:
+        channel_args.append(cygrpc.ChannelArg(encode(key), value))
+    return cygrpc.ChannelArgs(channel_args)
 
 
 def cygrpc_metadata(application_metadata):

@@ -105,7 +105,7 @@ class ChannelConnectivityTest(unittest.TestCase):
 
   def test_immediately_connectable_channel_connectivity(self):
     thread_pool = _thread_pool.RecordingThreadPool(max_workers=None)
-    server = _server.Server(thread_pool, ())
+    server = _server.Server(thread_pool, (), None)
     port = server.add_insecure_port('[::]:0')
     server.start()
     first_callback = _Callback()
@@ -146,7 +146,7 @@ class ChannelConnectivityTest(unittest.TestCase):
 
   def test_reachable_then_unreachable_channel_connectivity(self):
     thread_pool = _thread_pool.RecordingThreadPool(max_workers=None)
-    server = _server.Server(thread_pool, ())
+    server = _server.Server(thread_pool, (), None)
     port = server.add_insecure_port('[::]:0')
     server.start()
     callback = _Callback()
