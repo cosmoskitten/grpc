@@ -501,6 +501,9 @@ cleanup:
     }
     if (ops[i].op == GRPC_OP_RECV_MESSAGE) {
       grpc_byte_buffer_destroy(message);
+      if (message_str != NULL && PHP_MAJOR_VERSION >= 7) {
+        efree(message_str);
+      }
     }
   }
   RETURN_DESTROY_ZVAL(result);
