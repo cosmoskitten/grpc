@@ -207,10 +207,8 @@ void plugin_destroy_state(void *ptr) {
   plugin_state *state = (plugin_state *)ptr;
   efree(state->fci);
   efree(state->fci_cache);
-#if PHP_MAJOR_VERSION >= 7
-  efree(state->fci->params);
-  efree(state->fci->retval);
-#endif
+  PHP_GRPC_FREE_STD_ZVAL(state->fci->params);
+  PHP_GRPC_FREE_STD_ZVAL(state->fci->retval);
   efree(state);
 }
 

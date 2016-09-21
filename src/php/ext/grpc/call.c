@@ -478,9 +478,7 @@ PHP_METHOD(Call, startBatch) {
                                    true);
       add_property_zval(result, "status", recv_status);
       PHP_GRPC_DELREF(recv_status);
-#if PHP_MAJOR_VERSION >= 7
-      efree(recv_status);
-#endif
+      PHP_GRPC_FREE_STD_ZVAL(recv_status);
       break;
     case GRPC_OP_RECV_CLOSE_ON_SERVER:
       add_property_bool(result, "cancelled", cancelled);
@@ -504,11 +502,7 @@ cleanup:
     }
     if (ops[i].op == GRPC_OP_RECV_MESSAGE) {
       grpc_byte_buffer_destroy(message);
-#if PHP_MAJOR_VERSION >= 7
-      if (message_str != NULL) {
-        efree(message_str);
-      }
-#endif
+      PHP_GRPC_FREE_STD_ZVAL(message_str);
     }
   }
   RETURN_DESTROY_ZVAL(result);
