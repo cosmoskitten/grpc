@@ -53,6 +53,10 @@
 #define PHP_GRPC_FREE_STD_ZVAL(pzv)
 #define PHP_GRPC_DELREF(zv) Z_DELREF_P(zv)
 
+#define RETURN_DESTROY_ZVAL(val) \
+  RETURN_ZVAL(val, false /* Don't execute copy constructor */, \
+              true /* Dealloc original before returning */)
+
 #define PHP_GRPC_WRAP_OBJECT_START(name) \
   typedef struct name { \
     zend_object std;
@@ -147,6 +151,12 @@ static inline int php_grpc_zend_hash_find(HashTable *ht, char *key, int len,
   pzv = (zval *)emalloc(sizeof(zval));
 #define PHP_GRPC_FREE_STD_ZVAL(pzv) efree(pzv);
 #define PHP_GRPC_DELREF(zv)
+
+#define RETURN_DESTROY_ZVAL(val) \
+  RETVAL_ZVAL(val, false /* Don't execute copy constructor */, \
+              true /* Dealloc original before returning */); \
+  efree(val); \
+  return
 
 #define PHP_GRPC_WRAP_OBJECT_START(name) \
   typedef struct name {
