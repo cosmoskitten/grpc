@@ -208,8 +208,8 @@ void plugin_destroy_state(void *ptr) {
   efree(state->fci);
   efree(state->fci_cache);
 #if PHP_MAJOR_VERSION >= 7
-    efree(state->fci->params);
-    efree(state->fci->retval);
+  efree(state->fci->params);
+  efree(state->fci->retval);
 #endif
   efree(state);
 }
