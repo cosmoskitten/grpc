@@ -1,0 +1,27 @@
+%YAML 1.2
+--- |
+  // $Id$
+  // vim:ft=javascript
+
+  ARG_WITH("grpc", "grpc support", "no");
+
+  if (PHP_GRPC != "no") {
+
+    grpc_source =
+      % for source in php_config_m4.src:
+      "${source} " +
+      % endfor
+      % for lib in libs:
+      % if lib.name in php_config_m4.get('deps', []):
+      % for source in lib.src:
+      "${source} " +
+      % endfor
+      % endif
+      % endfor
+      "";
+
+    EXTENSION("grpc", grpc_source, PHP_GRPC_SHARED,
+      "/I"+configure_module_dirname+"\\third_party\\boringssl\\include "+
+      "/I"+configure_module_dirname+"\\src\\php\\ext\\grpc "+
+      "/I"+configure_module_dirname+"\\include");
+  }
