@@ -42,5 +42,7 @@ cd /var/local/git/grpc
 # clone gRPC submodules, use data from locally cloned submodules where possible
 git submodule | awk '{ system("git submodule update --init --reference \
 ./../../jenkins/grpc/" $2 " " $2) }'
+# if local gRPC submodules clone fails, clone via network
+git submodule update --init --recursive
 
 tools/run_tests/run_tests.py -l python -c opt --build_only

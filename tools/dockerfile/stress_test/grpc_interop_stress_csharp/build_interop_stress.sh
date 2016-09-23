@@ -42,6 +42,8 @@ cd /var/local/git/grpc
 # clone gRPC submodules, use data from locally cloned submodules where possible
 git submodule | awk '{ system("git submodule update --init --reference \
 ./../../jenkins/grpc/" $2 " " $2) }'
+# if local gRPC submodules clone fails, clone via network
+git submodule update --init --recursive
 
 # Build C++ metrics client (to query the metrics from csharp stress client)
 make metrics_client -j

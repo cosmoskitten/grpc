@@ -36,6 +36,8 @@ cd grpc
 # clone gRPC submodules, use data from locally cloned submodules where possible
 git submodule | awk -v EXTERNAL_GIT_ROOT=$EXTERNAL_GIT_ROOT/ '{ system("git \
 submodule update --init --reference " EXTERNAL_GIT_ROOT$2 " " $2) }'
+# if local gRPC submodules clone fails, clone via network
+git submodule update --init --recursive
 
 cd third_party/protobuf && ./autogen.sh && \
 ./configure && make -j4 && make check && make install && ldconfig

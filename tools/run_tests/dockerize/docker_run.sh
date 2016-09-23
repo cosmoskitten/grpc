@@ -41,6 +41,8 @@ then
   (cd var/local/git/grpc && exec git submodule | awk -v \
   EXTERNAL_GIT_ROOT=$EXTERNAL_GIT_ROOT/ '{ system("git submodule update --init \
   --reference " EXTERNAL_GIT_ROOT$2 " " $2) }')
+  # if local gRPC submodules clone fails, clone via network
+  (cd var/local/git/grpc && git submodule update --init --recursive)
 else
   mkdir -p "/var/local/git/grpc/$RELATIVE_COPY_PATH"
   cp -r "$EXTERNAL_GIT_ROOT/$RELATIVE_COPY_PATH"/* "/var/local/git/grpc/$RELATIVE_COPY_PATH"
