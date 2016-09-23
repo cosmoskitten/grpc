@@ -80,8 +80,8 @@ PACKAGE_DATA = {
         'credentials/server1.key',
         'credentials/server1.pem',
     ],
-    'tests.protoc_plugin': [
-        'protoc_plugin_test.proto',
+    'tests.protoc_plugin.protos.split': [
+        'split_test.proto',
     ],
     'tests.unit': [
         'credentials/ca.pem',
