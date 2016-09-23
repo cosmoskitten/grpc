@@ -143,7 +143,7 @@ class _Service(
     server: The grpc.Server servicing RPCs.
     stub: A stub on which to invoke RPCs.
   """
-      
+
 
 def _CreateService():
   """Provides a servicer backend and a stub.
