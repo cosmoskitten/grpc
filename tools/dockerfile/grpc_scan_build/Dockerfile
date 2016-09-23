@@ -41,6 +41,19 @@ RUN git clone --recursive https://github.com/grpc/grpc.git
 EXPOSE 8181
 
 CMD \
+  # creating a repository for gRPC submodules for local cloning
+  # this list should be updated when the list of submodules for gRPC changes
+  mkdir grpc-submodules && cd grpc-submodules && \
+  git init --bare && \
+  git remote add boringssl https://github.com/google/boringssl/ && \
+  git remote add gflags https://github.com/gflags/gflags/ && \
+  git remote add googletest https://github.com/google/googletest/ && \
+  git remote add nanopb https://github.com/nanopb/nanopb/ && \
+  git remote add protobuf https://github.com/google/protobuf/ && \
+  git remote add thrift https://github.com/apache/thrift/ && \
+  git remote add zlib https://github.com/madler/zlib/ && \
+  git fetch --all --recurse-submodules && \
+  cd .. ; \
   (cd grpc ; git pull) && \
   (cd grpc ; git submodule update --init --recursive) && \
   llvm/tools/clang/tools/scan-build/scan-build -o /tmp/grpc --use-analyzer=/usr/local/bin/clang make -C grpc buildtests && \

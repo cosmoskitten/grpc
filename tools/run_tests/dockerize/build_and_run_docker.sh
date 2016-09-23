@@ -56,6 +56,7 @@ CONTAINER_NAME="build_and_run_docker_$(uuidgen)"
 docker run \
   "$@" \
   -e EXTERNAL_GIT_ROOT="/var/local/jenkins/grpc" \
+  -e EXTERNAL_GIT_SUBMODULES_ROOT="/var/local/jenkins/grpc-submodules" \
   -e THIS_IS_REALLY_NEEDED='see https://github.com/docker/docker/issues/14203 for why docker is awful' \
   -v "$git_root:/var/local/jenkins/grpc:ro" \
   -w /var/local/git/grpc \

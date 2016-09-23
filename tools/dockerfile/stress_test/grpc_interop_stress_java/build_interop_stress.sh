@@ -39,8 +39,8 @@ git clone --recursive --depth 1 /var/local/jenkins/grpc-java /var/local/git/grpc
 git clone /var/local/jenkins/grpc /var/local/git/grpc
 
 # clone gRPC submodules, use data from locally cloned submodules where possible
-(cd /var/local/git/grpc/ && exec git submodule | awk '{ system("git submodule \
-update --init --reference ./../../jenkins/grpc/" $2 " " $2) }')
+(cd /var/local/git/grpc/ && egit submodule update --init --recursive \
+--reference /var/local/jenkins/grpc-submodules)
 # if local gRPC submodules clone fails, clone via network
 (cd /var/local/git/grpc/ && git submodule update --init --recursive)
 

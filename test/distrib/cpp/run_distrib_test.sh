@@ -34,8 +34,7 @@ git clone $EXTERNAL_GIT_ROOT
 cd grpc
 
 # clone gRPC submodules, use data from locally cloned submodules where possible
-git submodule | awk -v EXTERNAL_GIT_ROOT=$EXTERNAL_GIT_ROOT/ '{ system("git \
-submodule update --init --reference " EXTERNAL_GIT_ROOT$2 " " $2) }'
+git submodule update --init --recursive --reference $EXTERNAL_GIT_SUBMODULES_ROOT
 # if local gRPC submodules clone fails, clone via network
 git submodule update --init --recursive
 
