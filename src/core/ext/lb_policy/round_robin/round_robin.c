@@ -629,7 +629,9 @@ static grpc_lb_policy *round_robin_create(grpc_exec_ctx *exec_ctx,
     if (args->addresses->addresses[i].is_balancer) continue;
 
     memset(&sc_args, 0, sizeof(grpc_subchannel_args));
-    sc_args.server_name = args->server_name;
+    /* The following cast is fine because server_name argument will be copied as
+     * part of the subchannel creation. */
+    sc_args.server_name = (char *)args->server_name;
     sc_args.addr =
         (struct sockaddr *)(&args->addresses->addresses[i].address.addr);
     sc_args.addr_len = args->addresses->addresses[i].address.len;

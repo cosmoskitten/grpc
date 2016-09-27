@@ -74,7 +74,7 @@ void grpc_resolver_result_unref(grpc_exec_ctx* exec_ctx,
   }
 }
 
-char* grpc_resolver_result_get_server_name(grpc_resolver_result* result) {
+const char* grpc_resolver_result_get_server_name(grpc_resolver_result* result) {
   return result->server_name;
 }
 
