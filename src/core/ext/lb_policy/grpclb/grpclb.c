@@ -283,7 +283,7 @@ typedef struct glb_lb_policy {
   /** mutex protecting remaining members */
   gpr_mu mu;
 
-  const char *server_name;
+  char *server_name;
   grpc_client_channel_factory *cc_factory;
 
   /** for communicating with the LB server */
@@ -632,7 +632,7 @@ static void glb_destroy(grpc_exec_ctx *exec_ctx, grpc_lb_policy *pol) {
   glb_lb_policy *glb_policy = (glb_lb_policy *)pol;
   GPR_ASSERT(glb_policy->pending_picks == NULL);
   GPR_ASSERT(glb_policy->pending_pings == NULL);
-  gpr_free((void *)glb_policy->server_name);
+  gpr_free(glb_policy->server_name);
   grpc_channel_destroy(glb_policy->lb_channel);
   glb_policy->lb_channel = NULL;
   grpc_connectivity_state_destroy(exec_ctx, &glb_policy->state_tracker);
