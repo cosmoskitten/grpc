@@ -561,8 +561,7 @@ static grpc_lb_policy *glb_create(grpc_exec_ctx *exec_ctx,
 
   /* All input addresses in args->addresses come from a resolver that claims
    * they are LB services. It's the resolver's responsibility to make sure
-   * this
-   * policy is only instantiated and used in that case.
+   * this policy is only instantiated and used in that case.
    *
    * Create a client channel over them to communicate with a LB service */
   glb_policy->server_name = gpr_strdup(args->server_name);
