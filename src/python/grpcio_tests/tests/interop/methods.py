@@ -322,6 +322,14 @@ def _status_code_and_message(stub):
       'expected message %s, got %s' % (message, response_iterator.details()))
 
 
+def _unimplemented_method(stub):
+  status = grpc.StatusCode.UNIMPLEMENTED
+  response_future = stub.UnimplementedCall.future(empty_pb2.Empty())
+  if response_future.code() != status:
+    raise ValueError(
+      'expected code %s, got %s' % (status, response_future.code()))
+
+
 def _compute_engine_creds(stub, args):
   response = _large_unary_common_behavior(stub, True, True, None)
   if args.default_service_account != response.username:
@@ -386,6 +394,7 @@ class TestCase(enum.Enum):
   JWT_TOKEN_CREDS = 'jwt_token_creds'
   PER_RPC_CREDS = 'per_rpc_creds'
   TIMEOUT_ON_SLEEPING_SERVER = 'timeout_on_sleeping_server'
+  UNIMPLEMENTED_METHOD = 'unimplemented_method'
 
   def test_interoperability(self, stub, args):
     if self is TestCase.EMPTY_UNARY:
@@ -416,5 +425,7 @@ class TestCase(enum.Enum):
       _jwt_token_creds(stub, args)
     elif self is TestCase.PER_RPC_CREDS:
       _per_rpc_creds(stub, args)
+    elif self is TestCase.UNIMPLEMENTED_METHOD:
+      _unimplemented_method(stub)
     else:
       raise NotImplementedError('Test case "%s" not implemented!' % self.name)
