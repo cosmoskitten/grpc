@@ -44,13 +44,34 @@ from src.proto.grpc.testing import empty_pb2
 from src.proto.grpc.testing import messages_pb2
 from src.proto.grpc.testing import test_pb2
 
+_ECHO_INITIAL_METADATA_KEY = "x-grpc-test-echo-initial"
+_ECHO_TRAILING_BIN_METADATA_KEY = "x-grpc-test-echo-trailing-bin"
 
 class TestService(test_pb2.TestServiceServicer):
 
+  # If the request came with metadata in the context, this
+  # helper function will copy it to the returned metadata.
+  def MaybeEchoMetaData(self, context):
+    metadata = dict(context.invocation_metadata())
+    if _ECHO_INITIAL_METADATA_KEY in metadata:
+      initial_metadata =
+          (_ECHO_INITIAL_METADATA_KEY, metadata[_ECHO_INITIAL_METADATA_KEY])
+      # Send initial metadata expects a list of tuples
+      context.send_initial_metadata([initial_metadata])
+    if _ECHO_TRAILING_BIN_METADATA_KEY in metadata:
+      trailing_metadata =
+          (_ECHO_TRAILING_BIN_METADATA_KEY,
+              metadata[_ECHO_TRAILING_BIN_METADATA_KEY])
+      # Set trailing metadata expects a list of tuples
+      context.set_trailing_metadata([trailing_metadata])
+
   def EmptyCall(self, request, context):
+    self.MaybeEchoMetaData(context)
     return empty_pb2.Empty()
 
   def UnaryCall(self, request, context):
+    self.MaybeEchoMetaData(context)
+    dir(request)
     if request.HasField('response_status'):
       context.set_code(request.response_status.code)
       context.set_details(request.response_status.message)
@@ -78,6 +99,7 @@ class TestService(test_pb2.TestServiceServicer):
         aggregated_payload_size=aggregate_size)
 
   def FullDuplexCall(self, request_iterator, context):
+    self.MaybeEchoMetaData(context)
     for request in request_iterator:
       if request.HasField('response_status'):
         context.set_code(request.response_status.code)
