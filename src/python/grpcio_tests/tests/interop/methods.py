@@ -44,8 +44,8 @@ from src.proto.grpc.testing import empty_pb2
 from src.proto.grpc.testing import messages_pb2
 from src.proto.grpc.testing import test_pb2
 
-_ECHO_INITIAL_METADATA_KEY = "x-grpc-test-echo-initial"
-_ECHO_TRAILING_METADATA_KEY = "x-grpc-test-echo-trailing-bin"
+_INITIAL_METADATA_KEY = "x-grpc-test-echo-initial"
+_TRAILING_METADATA_KEY = "x-grpc-test-echo-trailing-bin"
 
 class TestService(test_pb2.TestServiceServicer):
 
@@ -53,14 +53,14 @@ class TestService(test_pb2.TestServiceServicer):
   # helper function will copy it to the returned metadata.
   def MaybeEchoMetaData(self, context):
     metadata = dict(context.invocation_metadata())
-    if _ECHO_INITIAL_METADATA_KEY in metadata:
+    if _INITIAL_METADATA_KEY in metadata:
       initial_metadata = (
-          _ECHO_INITIAL_METADATA_KEY, metadata[_ECHO_INITIAL_METADATA_KEY])
+          _INITIAL_METADATA_KEY, metadata[_INITIAL_METADATA_KEY])
       # Send initial metadata expects a list of tuples
       context.send_initial_metadata([initial_metadata])
-    if _ECHO_TRAILING_METADATA_KEY in metadata:
+    if _TRAILING_METADATA_KEY in metadata:
       trailing_metadata = (
-        _ECHO_TRAILING_METADATA_KEY, metadata[_ECHO_TRAILING_METADATA_KEY])
+        _TRAILING_METADATA_KEY, metadata[_TRAILING_METADATA_KEY])
       # Set trailing metadata expects a list of tuples
       context.set_trailing_metadata([trailing_metadata])
 
@@ -350,6 +350,27 @@ def _unimplemented_method(stub):
     raise ValueError(
       'expected code %s, got %s' % (status, response_future.code()))
 
+def _custom_metadata(stub):
+  _INITIAL_METADATA_VALUE = "test_initial_metadata_value"
+  _TRAILING_METADATA_VALUE = "\x0a\x0b\x0a\x0b\x0a\x0b"
+  metadata = [
+      (_INITIAL_METADATA_KEY, _INITIAL_METADATA_VALUE),
+      (_TRAILING_METADATA_KEY, _TRAILING_METADATA_VALUE)]
+  request = messages_pb2.SimpleRequest(
+      response_type=messages_pb2.COMPRESSABLE,
+      response_size=1,
+      payload=messages_pb2.Payload(body=b'\x00'))
+  response_future = stub.UnaryCall.future(request, metadata=metadata)
+  initial_metadata = dict(response_future.initial_metadata())
+  if initial_metadata[_INITIAL_METADATA_KEY] != _INITIAL_METADATA_VALUE:
+    raise ValueError(
+      'expected initial metadata %s, got %s' % (
+          _INITIAL_METADATA_VALUE, initial_metadata[_INITIAL_METADATA_KEY]))
+  trailing_metadata = dict(response_future.trailing_metadata())
+  if trailing_metadata[_TRAILING_METADATA_KEY] != _TRAILING_METADATA_VALUE:
+    raise ValueError(
+      'expected trailing metadata %s, got %s' % (
+          _TRAILING_METADATA_VALUE, initial_metadata[_TRAILING_METADATA_KEY]))
 
 def _compute_engine_creds(stub, args):
   response = _large_unary_common_behavior(stub, True, True, None)
@@ -410,12 +431,13 @@ class TestCase(enum.Enum):
   CANCEL_AFTER_FIRST_RESPONSE = 'cancel_after_first_response'
   EMPTY_STREAM = 'empty_stream'
   STATUS_CODE_AND_MESSAGE = 'status_code_and_message'
+  UNIMPLEMENTED_METHOD = 'unimplemented_method'
+  CUSTOM_METADATA = "custom_metadata"
   COMPUTE_ENGINE_CREDS = 'compute_engine_creds'
   OAUTH2_AUTH_TOKEN = 'oauth2_auth_token'
   JWT_TOKEN_CREDS = 'jwt_token_creds'
   PER_RPC_CREDS = 'per_rpc_creds'
   TIMEOUT_ON_SLEEPING_SERVER = 'timeout_on_sleeping_server'
-  UNIMPLEMENTED_METHOD = 'unimplemented_method'
 
   def test_interoperability(self, stub, args):
     if self is TestCase.EMPTY_UNARY:
@@ -438,6 +460,10 @@ class TestCase(enum.Enum):
       _empty_stream(stub)
     elif self is TestCase.STATUS_CODE_AND_MESSAGE:
       _status_code_and_message(stub)
+    elif self is TestCase.UNIMPLEMENTED_METHOD:
+      _unimplemented_method(stub)
+    elif self is TestCase.CUSTOM_METADATA:
+      _custom_metadata(stub)
     elif self is TestCase.COMPUTE_ENGINE_CREDS:
       _compute_engine_creds(stub, args)
     elif self is TestCase.OAUTH2_AUTH_TOKEN:
@@ -446,7 +472,5 @@ class TestCase(enum.Enum):
       _jwt_token_creds(stub, args)
     elif self is TestCase.PER_RPC_CREDS:
       _per_rpc_creds(stub, args)
-    elif self is TestCase.UNIMPLEMENTED_METHOD:
-      _unimplemented_method(stub)
     else:
       raise NotImplementedError('Test case "%s" not implemented!' % self.name)
