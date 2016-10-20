@@ -312,35 +312,39 @@ def _empty_stream(stub):
 
 
 def _status_code_and_message(stub):
-  message = 'test status message'
-  code = 2
-  status = grpc.StatusCode.UNKNOWN # code = 2
+  # Function wide constants
+  _MESSAGE = 'test status message'
+  _CODE = 2
+  _STATUS = grpc.StatusCode.UNKNOWN # code = 2
+
+  def ValidateStatusCodeAndMessage(response):
+    if response.code() != _STATUS:
+      raise ValueError(
+        'expected code %s, got %s' % (_STATUS, response.code()))
+    elif response.details() != _MESSAGE:
+      raise ValueError(
+        'expected message %s, got %s' % (_MESSAGE, response.details()))
+
+  # Test with a UnaryCall
   request = messages_pb2.SimpleRequest(
       response_type=messages_pb2.COMPRESSABLE,
       response_size=1,
       payload=messages_pb2.Payload(body=b'\x00'),
-      response_status=messages_pb2.EchoStatus(code=code, message=message)
+      response_status=messages_pb2.EchoStatus(code=_CODE, message=_MESSAGE)
   )
   response_future = stub.UnaryCall.future(request)
-  if response_future.code() != status:
-    raise ValueError(
-      'expected code %s, got %s' % (status, response_future.code()))
-  elif response_future.details() != message:
-    raise ValueError(
-      'expected message %s, got %s' % (message, response_future.details()))
+  ValidateStatusCodeAndMessage(response_future)
 
-  request = messages_pb2.StreamingOutputCallRequest(
-      response_type=messages_pb2.COMPRESSABLE,
-      response_parameters=(
-          messages_pb2.ResponseParameters(size=1),),
-      response_status=messages_pb2.EchoStatus(code=code, message=message))
-  response_iterator = stub.StreamingOutputCall(request)
-  if response_future.code() != status:
-    raise ValueError(
-      'expected code %s, got %s' % (status, response_iterator.code()))
-  elif response_future.details() != message:
-    raise ValueError(
-      'expected message %s, got %s' % (message, response_iterator.details()))
+  # Test with a FullDuplexCall
+  with _Pipe() as pipe:
+    response_iterator = stub.FullDuplexCall(pipe)
+    request = messages_pb2.StreamingOutputCallRequest(
+        response_type=messages_pb2.COMPRESSABLE,
+        response_parameters=(
+            messages_pb2.ResponseParameters(size=1),),
+        response_status=messages_pb2.EchoStatus(code=_CODE, message=_MESSAGE))
+    pipe.add(request)   # sends the initial request.
+    ValidateStatusCodeAndMessage(response_iterator)
 
 
 def _unimplemented_method(stub):
@@ -351,26 +355,44 @@ def _unimplemented_method(stub):
       'expected code %s, got %s' % (status, response_future.code()))
 
 def _custom_metadata(stub):
+  # Function wide constants
   _INITIAL_METADATA_VALUE = "test_initial_metadata_value"
   _TRAILING_METADATA_VALUE = "\x0a\x0b\x0a\x0b\x0a\x0b"
-  metadata = [
+  _METADATA = [
       (_INITIAL_METADATA_KEY, _INITIAL_METADATA_VALUE),
       (_TRAILING_METADATA_KEY, _TRAILING_METADATA_VALUE)]
+
+  def ValidateMetadata(response):
+    initial_metadata = dict(response.initial_metadata())
+    if initial_metadata[_INITIAL_METADATA_KEY] != _INITIAL_METADATA_VALUE:
+      raise ValueError(
+        'expected initial metadata %s, got %s' % (
+            _INITIAL_METADATA_VALUE, initial_metadata[_INITIAL_METADATA_KEY]))
+    trailing_metadata = dict(response.trailing_metadata())
+    if trailing_metadata[_TRAILING_METADATA_KEY] != _TRAILING_METADATA_VALUE:
+      raise ValueError(
+        'expected trailing metadata %s, got %s' % (
+            _TRAILING_METADATA_VALUE, initial_metadata[_TRAILING_METADATA_KEY]))
+
+  # Testing with UnaryCall
   request = messages_pb2.SimpleRequest(
       response_type=messages_pb2.COMPRESSABLE,
       response_size=1,
       payload=messages_pb2.Payload(body=b'\x00'))
-  response_future = stub.UnaryCall.future(request, metadata=metadata)
-  initial_metadata = dict(response_future.initial_metadata())
-  if initial_metadata[_INITIAL_METADATA_KEY] != _INITIAL_METADATA_VALUE:
-    raise ValueError(
-      'expected initial metadata %s, got %s' % (
-          _INITIAL_METADATA_VALUE, initial_metadata[_INITIAL_METADATA_KEY]))
-  trailing_metadata = dict(response_future.trailing_metadata())
-  if trailing_metadata[_TRAILING_METADATA_KEY] != _TRAILING_METADATA_VALUE:
-    raise ValueError(
-      'expected trailing metadata %s, got %s' % (
-          _TRAILING_METADATA_VALUE, initial_metadata[_TRAILING_METADATA_KEY]))
+  response_future = stub.UnaryCall.future(request, metadata=_METADATA)
+  ValidateMetadata(response_future)
+
+  # Testing with FullDuplexCall
+  with _Pipe() as pipe:
+    response_iterator = stub.FullDuplexCall(pipe, metadata=_METADATA)
+    request = messages_pb2.StreamingOutputCallRequest(
+        response_type=messages_pb2.COMPRESSABLE,
+        response_parameters=(
+            messages_pb2.ResponseParameters(size=1),))
+    pipe.add(request)   # Sends the request
+    response = next(response_iterator)    # Causes server to send trailing
+    pipe.close()
+    ValidateMetadata(response_iterator)
 
 def _compute_engine_creds(stub, args):
   response = _large_unary_common_behavior(stub, True, True, None)
