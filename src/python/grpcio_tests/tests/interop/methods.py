@@ -45,7 +45,7 @@ from src.proto.grpc.testing import messages_pb2
 from src.proto.grpc.testing import test_pb2
 
 _ECHO_INITIAL_METADATA_KEY = "x-grpc-test-echo-initial"
-_ECHO_TRAILING_BIN_METADATA_KEY = "x-grpc-test-echo-trailing-bin"
+_ECHO_TRAILING_METADATA_KEY = "x-grpc-test-echo-trailing-bin"
 
 class TestService(test_pb2.TestServiceServicer):
 
@@ -54,16 +54,22 @@ class TestService(test_pb2.TestServiceServicer):
   def MaybeEchoMetaData(self, context):
     metadata = dict(context.invocation_metadata())
     if _ECHO_INITIAL_METADATA_KEY in metadata:
-      initial_metadata =
-          (_ECHO_INITIAL_METADATA_KEY, metadata[_ECHO_INITIAL_METADATA_KEY])
+      initial_metadata = (
+          _ECHO_INITIAL_METADATA_KEY, metadata[_ECHO_INITIAL_METADATA_KEY])
       # Send initial metadata expects a list of tuples
       context.send_initial_metadata([initial_metadata])
-    if _ECHO_TRAILING_BIN_METADATA_KEY in metadata:
-      trailing_metadata =
-          (_ECHO_TRAILING_BIN_METADATA_KEY,
-              metadata[_ECHO_TRAILING_BIN_METADATA_KEY])
+    if _ECHO_TRAILING_METADATA_KEY in metadata:
+      trailing_metadata = (
+        _ECHO_TRAILING_METADATA_KEY, metadata[_ECHO_TRAILING_METADATA_KEY])
       # Set trailing metadata expects a list of tuples
       context.set_trailing_metadata([trailing_metadata])
+
+  # If the request asks for a particular status code and details,
+  # this helper sets those values
+  def MaybeEchoStatusAndMessage(self, request, context):
+    if request.HasField('response_status'):
+      context.set_code(request.response_status.code)
+      context.set_details(request.response_status.message)
 
   def EmptyCall(self, request, context):
     self.MaybeEchoMetaData(context)
@@ -71,19 +77,14 @@ class TestService(test_pb2.TestServiceServicer):
 
   def UnaryCall(self, request, context):
     self.MaybeEchoMetaData(context)
-    dir(request)
-    if request.HasField('response_status'):
-      context.set_code(request.response_status.code)
-      context.set_details(request.response_status.message)
+    self.MaybeEchoStatusAndMessage(request, context)
     return messages_pb2.SimpleResponse(
         payload=messages_pb2.Payload(
             type=messages_pb2.COMPRESSABLE,
             body=b'\x00' * request.response_size))
 
   def StreamingOutputCall(self, request, context):
-    if request.HasField('response_status'):
-      context.set_code(request.response_status.code)
-      context.set_details(request.response_status.message)
+    self.MaybeEchoStatusAndMessage(request, context)
     for response_parameters in request.response_parameters:
       yield messages_pb2.StreamingOutputCallResponse(
           payload=messages_pb2.Payload(
@@ -101,9 +102,7 @@ class TestService(test_pb2.TestServiceServicer):
   def FullDuplexCall(self, request_iterator, context):
     self.MaybeEchoMetaData(context)
     for request in request_iterator:
-      if request.HasField('response_status'):
-        context.set_code(request.response_status.code)
-        context.set_details(request.response_status.message)
+      self.MaybeEchoStatusAndMessage(request, context)
       for response_parameters in request.response_parameters:
         yield messages_pb2.StreamingOutputCallResponse(
             payload=messages_pb2.Payload(
