@@ -64,12 +64,16 @@ class TestService(test_pb2.TestServiceServicer):
       # Set trailing metadata expects a list of tuples
       context.set_trailing_metadata([trailing_metadata])
 
-  # If the request asks for a particular status code and details,
-  # this helper sets those values
-  def MaybeEchoStatusAndMessage(self, request, context):
+  # If the request asks for a particular status code and details, this helper
+  # sets those values. It returns true if a status code was requested, because
+  # the server does not continue processing in that case
+  def EchoStatusAndMessage(self, request, context):
     if request.HasField('response_status'):
       context.set_code(request.response_status.code)
       context.set_details(request.response_status.message)
+      return True
+    else:
+      return False
 
   def EmptyCall(self, request, context):
     self.MaybeEchoMetaData(context)
@@ -77,14 +81,15 @@ class TestService(test_pb2.TestServiceServicer):
 
   def UnaryCall(self, request, context):
     self.MaybeEchoMetaData(context)
-    self.MaybeEchoStatusAndMessage(request, context)
+    self.EchoStatusAndMessage(request, context)
     return messages_pb2.SimpleResponse(
         payload=messages_pb2.Payload(
             type=messages_pb2.COMPRESSABLE,
             body=b'\x00' * request.response_size))
 
   def StreamingOutputCall(self, request, context):
-    self.MaybeEchoStatusAndMessage(request, context)
+    if self.EchoStatusAndMessage(request, context):
+      return
     for response_parameters in request.response_parameters:
       yield messages_pb2.StreamingOutputCallResponse(
           payload=messages_pb2.Payload(
@@ -102,7 +107,8 @@ class TestService(test_pb2.TestServiceServicer):
   def FullDuplexCall(self, request_iterator, context):
     self.MaybeEchoMetaData(context)
     for request in request_iterator:
-      self.MaybeEchoStatusAndMessage(request, context)
+      if self.EchoStatusAndMessage(request, context):
+        return
       for response_parameters in request.response_parameters:
         yield messages_pb2.StreamingOutputCallResponse(
             payload=messages_pb2.Payload(
@@ -344,8 +350,6 @@ def _status_code_and_message(stub):
             messages_pb2.ResponseParameters(size=1),),
         response_status=messages_pb2.EchoStatus(code=_CODE, message=_MESSAGE))
     pipe.add(request)   # sends the initial request.
-    response = next(response_iterator)
-    pipe.close()
     ValidateStatusCodeAndMessage(response_iterator)
 
 
