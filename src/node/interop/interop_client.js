@@ -379,7 +379,6 @@ function unimplementedMethod(client, done) {
   client.unimplementedCall({}, function(err, resp) {
     assert(err);
     assert.strictEqual(err.code, grpc.status.UNIMPLEMENTED);
-    assert(!err.message);
     done();
   });
 }

@@ -344,6 +344,8 @@ def _status_code_and_message(stub):
             messages_pb2.ResponseParameters(size=1),),
         response_status=messages_pb2.EchoStatus(code=_CODE, message=_MESSAGE))
     pipe.add(request)   # sends the initial request.
+    response = next(response_iterator)
+    pipe.close()
     ValidateStatusCodeAndMessage(response_iterator)
 
 
