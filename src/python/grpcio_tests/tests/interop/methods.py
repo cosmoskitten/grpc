@@ -341,16 +341,14 @@ def _status_code_and_message(stub):
   response_future = stub.UnaryCall.future(request)
   ValidateStatusCodeAndMessage(response_future)
 
-  # Test with a FullDuplexCall
-  with _Pipe() as pipe:
-    response_iterator = stub.FullDuplexCall(pipe)
-    request = messages_pb2.StreamingOutputCallRequest(
-        response_type=messages_pb2.COMPRESSABLE,
-        response_parameters=(
-            messages_pb2.ResponseParameters(size=1),),
-        response_status=messages_pb2.EchoStatus(code=_CODE, message=_MESSAGE))
-    pipe.add(request)   # sends the initial request.
-    ValidateStatusCodeAndMessage(response_iterator)
+  # Test with StreamingOutput
+  request = messages_pb2.StreamingOutputCallRequest(
+      response_type=messages_pb2.COMPRESSABLE,
+      response_parameters=(
+          messages_pb2.ResponseParameters(size=1),),
+      response_status=messages_pb2.EchoStatus(code=_CODE, message=_MESSAGE))
+  response_iterator = stub.StreamingOutputCall(request)
+  ValidateStatusCodeAndMessage(response_iterator)
 
 
 def _unimplemented_method(stub):
