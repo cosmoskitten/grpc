@@ -71,9 +71,6 @@ class TestService(test_pb2.TestServiceServicer):
     if request.HasField('response_status'):
       context.set_code(request.response_status.code)
       context.set_details(request.response_status.message)
-      return True
-    else:
-      return False
 
   def EmptyCall(self, request, context):
     self.MaybeEchoMetaData(context)
@@ -88,8 +85,7 @@ class TestService(test_pb2.TestServiceServicer):
             body=b'\x00' * request.response_size))
 
   def StreamingOutputCall(self, request, context):
-    if self.EchoStatusAndMessage(request, context):
-      return
+    self.EchoStatusAndMessage(request, context)
     for response_parameters in request.response_parameters:
       yield messages_pb2.StreamingOutputCallResponse(
           payload=messages_pb2.Payload(
@@ -107,9 +103,10 @@ class TestService(test_pb2.TestServiceServicer):
   def FullDuplexCall(self, request_iterator, context):
     self.MaybeEchoMetaData(context)
     for request in request_iterator:
-      if self.EchoStatusAndMessage(request, context):
-        return
+      self.EchoStatusAndMessage(request, context)
+      print request.response_parameters
       for response_parameters in request.response_parameters:
+        print response_parameters
         yield messages_pb2.StreamingOutputCallResponse(
             payload=messages_pb2.Payload(
                 type=request.payload.type,
@@ -341,13 +338,17 @@ def _status_code_and_message(stub):
   response_future = stub.UnaryCall.future(request)
   ValidateStatusCodeAndMessage(response_future)
 
-  # Test with StreamingOutput
-  request = messages_pb2.StreamingOutputCallRequest(
-      response_type=messages_pb2.COMPRESSABLE,
-      response_parameters=(
-          messages_pb2.ResponseParameters(size=1),),
-      response_status=messages_pb2.EchoStatus(code=_CODE, message=_MESSAGE))
-  response_iterator = stub.StreamingOutputCall(request)
+  # Test with a FullDuplexCall
+  with _Pipe() as pipe:
+    response_iterator = stub.FullDuplexCall(pipe)
+    request = messages_pb2.StreamingOutputCallRequest(
+        response_type=messages_pb2.COMPRESSABLE,
+        response_parameters=(
+            messages_pb2.ResponseParameters(size=1),),
+        payload=messages_pb2.Payload(body=b'\x00'),
+        response_status=messages_pb2.EchoStatus(code=_CODE, message=_MESSAGE))
+    pipe.add(request)   # sends the initial request.
+  # Dropping out of with block closes the pipe
   ValidateStatusCodeAndMessage(response_iterator)
 
 
@@ -394,9 +395,9 @@ def _custom_metadata(stub):
         response_parameters=(
             messages_pb2.ResponseParameters(size=1),))
     pipe.add(request)   # Sends the request
-    response = next(response_iterator)    # Causes server to send trailing
-    pipe.close()
-    ValidateMetadata(response_iterator)
+    next(response_iterator)    # Causes server to send trailing
+  # Dropping out of the with block closes the pipe
+  ValidateMetadata(response_iterator)
 
 def _compute_engine_creds(stub, args):
   response = _large_unary_common_behavior(stub, True, True, None)
