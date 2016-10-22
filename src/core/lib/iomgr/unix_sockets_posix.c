@@ -51,6 +51,10 @@ grpc_error *grpc_resolve_unix_domain_address(const char *name,
                                              grpc_resolved_addresses **addrs) {
   struct sockaddr_un *un;
 
+  if (strlen(name) > 107) {
+    return GRPC_ERROR_CREATE(
+        "Path name should not have more than 107 characters.");
+  }
   *addrs = gpr_malloc(sizeof(grpc_resolved_addresses));
   (*addrs)->naddrs = 1;
   (*addrs)->addrs = gpr_malloc(sizeof(grpc_resolved_address));
