@@ -358,7 +358,14 @@ def _status_code_and_message(stub):
   ValidateStatusCodeAndDetails(response_iterator, status, details)
 
 
+# NOTE: the stub for this function is a TestService.
 def _unimplemented_method(stub):
+  response_future = stub.UnimplementedCall.future(empty_pb2.Empty())
+  ExpectStatusCode(response_future, grpc.StatusCode.UNIMPLEMENTED)
+
+
+# NOTE: the stub for this function is an UnimplementedService.
+def _unimplemented_service(stub):
   response_future = stub.UnimplementedCall.future(empty_pb2.Empty())
   ExpectStatusCode(response_future, grpc.StatusCode.UNIMPLEMENTED)
 
@@ -463,6 +470,7 @@ class TestCase(enum.Enum):
   EMPTY_STREAM = 'empty_stream'
   STATUS_CODE_AND_MESSAGE = 'status_code_and_message'
   UNIMPLEMENTED_METHOD = 'unimplemented_method'
+  UNIMPLEMENTED_SERVICE = 'unimplemented_service'
   CUSTOM_METADATA = "custom_metadata"
   COMPUTE_ENGINE_CREDS = 'compute_engine_creds'
   OAUTH2_AUTH_TOKEN = 'oauth2_auth_token'
@@ -493,6 +501,8 @@ class TestCase(enum.Enum):
       _status_code_and_message(stub)
     elif self is TestCase.UNIMPLEMENTED_METHOD:
       _unimplemented_method(stub)
+    elif self is TestCase.UNIMPLEMENTED_SERVICE:
+      _unimplemented_service(stub)
     elif self is TestCase.CUSTOM_METADATA:
       _custom_metadata(stub)
     elif self is TestCase.COMPUTE_ENGINE_CREDS:
