@@ -42,6 +42,7 @@
 
 #include <grpc/support/alloc.h>
 #include <grpc/support/log.h>
+#include <grpc/support/useful.h>
 
 void grpc_create_socketpair_if_unix(int sv[2]) {
   GPR_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, sv) == 0);
@@ -51,9 +52,15 @@ grpc_error *grpc_resolve_unix_domain_address(const char *name,
                                              grpc_resolved_addresses **addrs) {
   struct sockaddr_un *un;
 
-  if (strlen(name) > 107) {
-    return GRPC_ERROR_CREATE(
-        "Path name should not have more than 107 characters.");
+  if (strlen(name) > sizeof(GPR_ARRAY_SIZE(un->sun_path) - 1)) {
+    char *err_msg;
+    grpc_error *err;
+    gpr_asprintf(&err_msg,
+                 "Path name should not have more than %" PRIuPTR " characters.",
+                 GPR_ARRAY_SIZE(un->sun_path) - 1);
+    err = GRPC_ERROR_CREATE(err_msg);
+    gpr_free(err_msg);
+    return err;
   }
   *addrs = gpr_malloc(sizeof(grpc_resolved_addresses));
   (*addrs)->naddrs = 1;
