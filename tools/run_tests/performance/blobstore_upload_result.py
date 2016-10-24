@@ -1,5 +1,5 @@
-#!/bin/bash
-# Copyright 2015, Google Inc.
+#!/usr/bin/env python2.7
+# Copyright 2016, Google Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,40 +28,24 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-source ~/.rvm/scripts/rvm
-set -ex
+# Uploads performance benchmark result file to bigquery.
 
-cd $(dirname $0)/../../..
+#import argparse
+#import calendar
+#import json
+#import os
+#import sys
+#import time
+#import uuid
+#
+#_PROJECT_ID='grpc-testing'
+#
+#
+#
+#argp = argparse.ArgumentParser(description='Upload result to blob store.')
+#argp.add_argument('--blobstore_result_table', required=True, default=None, type=str,
+#                  help='Blobstore "dataset.table" to upload results to.')
+#argp.add_argument('--file_to_upload', default='perf_report_text', type=str,
+#                  help='Report file to upload.')
 
-CONFIG=${CONFIG:-opt}
 
-# build C++ qps worker & driver always - we need at least the driver to
-# run any of the scenarios.
-# TODO(jtattermusch): not embedding OpenSSL breaks the C# build because
-# grpc_csharp_ext needs OpenSSL embedded and some intermediate files from
-# this build will be reused.
-if [[ $ON_REMOTE_HOST == "" ]]
-then
-  make CONFIG=${CONFIG} EMBED_OPENSSL=true EMBED_ZLIB=true qps_worker qps_json_driver -j8
-fi
-
-for language in $@
-do
-  case "$language" in
-  "c++")
-    ;;  # C++ has already been built.
-  "java")
-    (cd ../grpc-java/ &&
-      ./gradlew -PskipCodegen=true :grpc-benchmarks:installDist)
-    ;;
-  "go")
-    tools/run_tests/performance/build_performance_go.sh
-    ;;
-  "csharp")
-    tools/run_tests/run_tests.py -l $language -c $CONFIG --build_only -j 8 --compiler coreclr
-    ;;
-  *)
-    tools/run_tests/run_tests.py -l $language -c $CONFIG --build_only -j 8
-    ;;
-  esac
-done
