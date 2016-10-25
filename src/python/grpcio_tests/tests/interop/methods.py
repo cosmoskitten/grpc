@@ -49,7 +49,7 @@ _TRAILING_METADATA_KEY = "x-grpc-test-echo-trailing-bin"
 
 # If the request came with metadata in the context, this
 # helper function will copy it to the returned metadata.
-def MaybeEchoMetaData(context):
+def _maybe_echo_metadata(context):
   metadata = dict(context.invocation_metadata())
   if _INITIAL_METADATA_KEY in metadata:
     initial_metadata = (
@@ -65,7 +65,7 @@ def MaybeEchoMetaData(context):
 # If the request asks for a particular status code and details, this helper
 # sets those values. It returns true if a status code was requested, because
 # the server does not continue processing in that case
-def MaybeEchoStatusAndMessage(request, context):
+def _maybe_echo_status_and_message(request, context):
   if request.HasField('response_status'):
     context.set_code(request.response_status.code)
     context.set_details(request.response_status.message)
@@ -73,19 +73,19 @@ def MaybeEchoStatusAndMessage(request, context):
 class TestService(test_pb2.TestServiceServicer):
 
   def EmptyCall(self, request, context):
-    MaybeEchoMetaData(context)
+    _maybe_echo_metadata(context)
     return empty_pb2.Empty()
 
   def UnaryCall(self, request, context):
-    MaybeEchoMetaData(context)
-    MaybeEchoStatusAndMessage(request, context)
+    _maybe_echo_metadata(context)
+    _maybe_echo_status_and_message(request, context)
     return messages_pb2.SimpleResponse(
         payload=messages_pb2.Payload(
             type=messages_pb2.COMPRESSABLE,
             body=b'\x00' * request.response_size))
 
   def StreamingOutputCall(self, request, context):
-    MaybeEchoStatusAndMessage(request, context)
+    _maybe_echo_status_and_message(request, context)
     for response_parameters in request.response_parameters:
       yield messages_pb2.StreamingOutputCallResponse(
           payload=messages_pb2.Payload(
@@ -101,9 +101,9 @@ class TestService(test_pb2.TestServiceServicer):
         aggregated_payload_size=aggregate_size)
 
   def FullDuplexCall(self, request_iterator, context):
-    MaybeEchoMetaData(context)
+    _maybe_echo_metadata(context)
     for request in request_iterator:
-      MaybeEchoStatusAndMessage(request, context)
+      _maybe_echo_status_and_message(request, context)
       for response_parameters in request.response_parameters:
         yield messages_pb2.StreamingOutputCallResponse(
             payload=messages_pb2.Payload(
@@ -116,24 +116,24 @@ class TestService(test_pb2.TestServiceServicer):
     return self.FullDuplexCall(request_iterator, context)
 
 
-def ExpectStatusCode(call, expected_code):
+def _expect_status_code(call, expected_code):
   if call.code() != expected_code:
     raise ValueError(
       'expected code %s, got %s' % (expected_code, call.code()))
 
 
-def ExpectStatusDetails(call, expected_details):
+def _expect_status_details(call, expected_details):
   if call.details() != expected_details:
     raise ValueError(
       'expected message %s, got %s' % (expected_details, call.details()))
 
 
-def ValidateStatusCodeAndDetails(call, expected_code, expected_details):
-  ExpectStatusCode(call, expected_code)
-  ExpectStatusDetails(call, expected_details)
+def _validate_status_code_and_details(call, expected_code, expected_details):
+  _expect_status_code(call, expected_code)
+  _expect_status_details(call, expected_details)
 
 
-def ValidatePayloadTypeAndLength(response, expected_type, expected_length):
+def _validate_payload_type_and_length(response, expected_type, expected_length):
   if response.payload.type is not expected_type:
     raise ValueError(
       'expected payload type %s, got %s' %
@@ -154,7 +154,7 @@ def _large_unary_common_behavior(
   response_future = stub.UnaryCall.future(
       request, credentials=call_credentials)
   response = response_future.result()
-  ValidatePayloadTypeAndLength(response, messages_pb2.COMPRESSABLE, size)
+  _validate_payload_type_and_length(response, messages_pb2.COMPRESSABLE, size)
   return response
 
 
@@ -197,7 +197,7 @@ def _server_streaming(stub):
   )
   response_iterator = stub.StreamingOutputCall(request)
   for index, response in enumerate(response_iterator):
-    ValidatePayloadTypeAndLength(
+    _validate_payload_type_and_length(
         response, messages_pb2.COMPRESSABLE, sizes[index])
 
 
@@ -266,7 +266,7 @@ def _ping_pong(stub):
           payload=messages_pb2.Payload(body=b'\x00' * payload_size))
       pipe.add(request)
       response = next(response_iterator)
-      ValidatePayloadTypeAndLength(
+      _validate_payload_type_and_length(
           response, messages_pb2.COMPRESSABLE, response_size)
 
 
@@ -342,7 +342,7 @@ def _status_code_and_message(stub):
       response_status=messages_pb2.EchoStatus(code=code, message=details)
   )
   response_future = stub.UnaryCall.future(request)
-  ValidateStatusCodeAndDetails(response_future, status, details)
+  _validate_status_code_and_details(response_future, status, details)
 
   # Test with a FullDuplexCall
   with _Pipe() as pipe:
@@ -355,52 +355,53 @@ def _status_code_and_message(stub):
         response_status=messages_pb2.EchoStatus(code=code, message=details))
     pipe.add(request)   # sends the initial request.
   # Dropping out of with block closes the pipe
-  ValidateStatusCodeAndDetails(response_iterator, status, details)
+  _validate_status_code_and_details(response_iterator, status, details)
 
 
-# NOTE: the stub for this function is a TestService.
+# NOTE(ncteisen): the stub for this function is a TestService.
 def _unimplemented_method(stub):
   response_future = stub.UnimplementedCall.future(empty_pb2.Empty())
-  ExpectStatusCode(response_future, grpc.StatusCode.UNIMPLEMENTED)
+  _expect_status_code(response_future, grpc.StatusCode.UNIMPLEMENTED)
 
 
-# NOTE: the stub for this function is an UnimplementedService.
+# NOTE(ncteisen): the stub for this function is an UnimplementedService.
 def _unimplemented_service(stub):
   response_future = stub.UnimplementedCall.future(empty_pb2.Empty())
-  ExpectStatusCode(response_future, grpc.StatusCode.UNIMPLEMENTED)
+  _expect_status_code(response_future, grpc.StatusCode.UNIMPLEMENTED)
 
 
 def _custom_metadata(stub):
   # Function wide constants
-  _INITIAL_METADATA_VALUE = "test_initial_metadata_value"
-  _TRAILING_METADATA_VALUE = "\x0a\x0b\x0a\x0b\x0a\x0b"
-  _METADATA = [
-      (_INITIAL_METADATA_KEY, _INITIAL_METADATA_VALUE),
-      (_TRAILING_METADATA_KEY, _TRAILING_METADATA_VALUE)]
+  initial_metadata_value = "test_initial_metadata_value"
+  trailing_metadata_value = "\x0a\x0b\x0a\x0b\x0a\x0b"
+  metadata = [
+      (_INITIAL_METADATA_KEY, initial_metadata_value),
+      (_TRAILING_METADATA_KEY, trailing_metadata_value)]
 
-  def ValidateMetadata(response):
+  # Internal helper to check that the returned metadata is correct.
+  def _validate_metadata(response):
     initial_metadata = dict(response.initial_metadata())
-    if initial_metadata[_INITIAL_METADATA_KEY] != _INITIAL_METADATA_VALUE:
+    if initial_metadata[_INITIAL_METADATA_KEY] != initial_metadata_value:
       raise ValueError(
         'expected initial metadata %s, got %s' % (
-            _INITIAL_METADATA_VALUE, initial_metadata[_INITIAL_METADATA_KEY]))
+            initial_metadata_value, initial_metadata[_INITIAL_METADATA_KEY]))
     trailing_metadata = dict(response.trailing_metadata())
-    if trailing_metadata[_TRAILING_METADATA_KEY] != _TRAILING_METADATA_VALUE:
+    if trailing_metadata[_TRAILING_METADATA_KEY] != trailing_metadata_value:
       raise ValueError(
         'expected trailing metadata %s, got %s' % (
-            _TRAILING_METADATA_VALUE, initial_metadata[_TRAILING_METADATA_KEY]))
+            trailing_metadata_value, initial_metadata[_TRAILING_METADATA_KEY]))
 
   # Testing with UnaryCall
   request = messages_pb2.SimpleRequest(
       response_type=messages_pb2.COMPRESSABLE,
       response_size=1,
       payload=messages_pb2.Payload(body=b'\x00'))
-  response_future = stub.UnaryCall.future(request, metadata=_METADATA)
-  ValidateMetadata(response_future)
+  response_future = stub.UnaryCall.future(request, metadata=metadata)
+  _validate_metadata(response_future)
 
   # Testing with FullDuplexCall
   with _Pipe() as pipe:
-    response_iterator = stub.FullDuplexCall(pipe, metadata=_METADATA)
+    response_iterator = stub.FullDuplexCall(pipe, metadata=metadata)
     request = messages_pb2.StreamingOutputCallRequest(
         response_type=messages_pb2.COMPRESSABLE,
         response_parameters=(
@@ -408,7 +409,7 @@ def _custom_metadata(stub):
     pipe.add(request)   # Sends the request
     next(response_iterator)    # Causes server to send trailing metadata
   # Dropping out of the with block closes the pipe
-  ValidateMetadata(response_iterator)
+  _validate_metadata(response_iterator)
 
 def _compute_engine_creds(stub, args):
   response = _large_unary_common_behavior(stub, True, True, None)
