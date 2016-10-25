@@ -105,7 +105,7 @@ _WHITELIST_DICT = {
   'config\.m4$': [_PHP_TEST_SUITE],
   'CONTRIBUTING\.md$': [],
   'Gemfile$': [_RUBY_TEST_SUITE],
-  'grpc.def$': [_WINDOWS_TEST_SUITE],
+  'grpc\.def$': [_WINDOWS_TEST_SUITE],
   'grpc\.gemspec$': [_RUBY_TEST_SUITE],
   'gRPC\.podspec$': [_OBJC_TEST_SUITE],
   'gRPC\-Core\.podspec$': [_OBJC_TEST_SUITE],
@@ -176,11 +176,7 @@ def filter_tests(tests, base_branch):
   changed_files = _get_changed_files(base_branch)
   for changed_file in changed_files:
     print("  %s" % changed_file)
-  print
-
-  # todo(mattkwong): Remove this
-  # Faking changed files to test test filtering on Jenkins
-  changed_files = ['src/node/something', 'src/python/something']
+  print("")
 
   # Regex that combines all keys in _WHITELIST_DICT
   all_triggers = "(" + ")|(".join(_WHITELIST_DICT.keys()) + ")"
