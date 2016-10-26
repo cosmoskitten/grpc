@@ -242,7 +242,8 @@ static void compress_start_transport_stream_op(grpc_exec_ctx *exec_ctx,
     process_send_initial_metadata(elem, op->send_initial_metadata);
   }
   if (op->send_message != NULL && !skip_compression(elem) &&
-      0 == (op->send_message->flags & GRPC_WRITE_NO_COMPRESS)) {
+      0 == (op->send_message->flags &
+            (GRPC_WRITE_NO_COMPRESS | GRPC_WRITE_INTERNAL_COMPRESS))) {
     calld->send_op = op;
     calld->send_length = op->send_message->length;
     calld->send_flags = op->send_message->flags;

@@ -1461,6 +1461,9 @@ static grpc_call_error call_start_batch(grpc_exec_ctx *exec_ctx,
         grpc_slice_buffer_stream_init(
             &call->sending_stream,
             &op->data.send_message->data.raw.slice_buffer, op->flags);
+        if (op->data.send_message->data.raw.compression > GRPC_COMPRESS_NONE) {
+          call->sending_stream.base.flags |= GRPC_WRITE_INTERNAL_COMPRESS;
+        }
         stream_op->send_message = &call->sending_stream.base;
         break;
       case GRPC_OP_SEND_CLOSE_FROM_CLIENT:
