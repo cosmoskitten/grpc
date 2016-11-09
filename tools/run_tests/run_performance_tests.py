@@ -429,7 +429,6 @@ argp.add_argument('--netperf',
 argp.add_argument('-x', '--xml_report', default='report.xml', type=str,
                   help='Name of XML report file to generate.')
 argp.add_argument('--perf',
-                  #nargs='+',
                   help='Wrap QPS workers in a perf command, with arguments to perf specified here.')
 
 args = argp.parse_args()
@@ -438,6 +437,7 @@ languages = set(scenario_config.LANGUAGES[l]
                 for l in itertools.chain.from_iterable(
                       scenario_config.LANGUAGES.iterkeys() if x == 'all' else [x]
                       for x in args.language))
+
 
 # Put together set of remote hosts where to run and build
 remote_hosts = set()
