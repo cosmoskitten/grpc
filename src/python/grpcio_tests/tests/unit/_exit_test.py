@@ -186,7 +186,7 @@ class ExitTest(unittest.TestCase):
 
 class _ShutDownHandler(object):
 
-  def __int__(self):
+  def __init__(self):
     self.seen_handler_grace = None
 
   def shutdown_handler(self, handler_grace):
