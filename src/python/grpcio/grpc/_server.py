@@ -681,34 +681,40 @@ def _stop(state, grace, shutdown_handler_grace):
   shutdown_event = threading.Event()
 
   def cancel_all_calls_after_grace():
-    for handler in state.shutdown_handlers:
-      handler(shutdown_handler_grace)
+    do_shutdown = False
     with state.lock:
-      if state.stage is _ServerStage.STARTED:
-        state.server.shutdown(state.completion_queue, _SHUTDOWN_TAG)
+      if state.stage is _ServerStage.STOPPED:
+        shutdown_event.set()
+        return
+      elif state.stage is _ServerStage.STARTED:
+        do_shutdown = True
         state.stage = _ServerStage.GRACE
         state.shutdown_events = []
-        state.due.add(_SHUTDOWN_TAG)
       state.shutdown_events.append(shutdown_event)
-    shutdown_event.wait(timeout=grace)
-    with state.lock:
-      state.server.cancel_all_calls()
-      # TODO(https://github.com/grpc/grpc/issues/6597): delete this loop.
-      for rpc_state in state.rpc_states:
-        with rpc_state.condition:
-          rpc_state.client = _CANCELLED
-          rpc_state.condition.notify_all()
 
-  with state.lock:
-    shutdown_event = threading.Event()
-    if state.stage is _ServerStage.STOPPED:
-      shutdown_event.set()
-    else:
-      if grace or state.shutdown_handlers:
-        threading.Thread(target=cancel_all_calls_after_grace).start()
-      else:
-        cancel_all_calls_after_grace()
-        shutdown_event.wait()
+    if do_shutdown:
+      # Run Shutdown Handlers without the lock
+      for handler in state.shutdown_handlers:
+        handler(shutdown_handler_grace)
+      with state.lock:
+        state.server.shutdown(state.completion_queue, _SHUTDOWN_TAG)
+        state.stage = _ServerStage.GRACE
+        state.due.add(_SHUTDOWN_TAG)
+
+    if not shutdown_event.wait(timeout=grace):
+      with state.lock:
+        state.server.cancel_all_calls()
+        # TODO(https://github.com/grpc/grpc/issues/6597): delete this loop.
+        for rpc_state in state.rpc_states:
+          with rpc_state.condition:
+            rpc_state.client = _CANCELLED
+            rpc_state.condition.notify_all()
+
+  if grace is None:
+    cancel_all_calls_after_grace()
+  else:
+    threading.Thread(target=cancel_all_calls_after_grace).start()
+
   return shutdown_event
 
 
