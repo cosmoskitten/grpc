@@ -1064,9 +1064,9 @@ static void perform_stream_op(grpc_exec_ctx *exec_ctx, grpc_transport *gt,
       header_has_authority(op->send_initial_metadata->list.head)) {
     /* Cronet does not support :authority header field. We cancel the call when
        this field is present in metadata */
-    cronet_bidirectional_stream_header_array header_array;
-    cronet_bidirectional_stream_header *header;
-    cronet_bidirectional_stream cbs;
+    bidirectional_stream_header_array header_array;
+    bidirectional_stream_header *header;
+    bidirectional_stream cbs;
     CRONET_LOG(GPR_DEBUG,
                ":authority header is provided but not supported;"
                " cancel operations");
@@ -1074,8 +1074,8 @@ static void perform_stream_op(grpc_exec_ctx *exec_ctx, grpc_transport *gt,
     header_array.count = 1;
     header_array.capacity = 1;
     header_array.headers =
-        gpr_malloc(sizeof(cronet_bidirectional_stream_header));
-    header = (cronet_bidirectional_stream_header *)header_array.headers;
+        gpr_malloc(sizeof(bidirectional_stream_header));
+    header = (bidirectional_stream_header *)header_array.headers;
     header->key = "grpc-status";
     header->value = "1"; /* Return status GRPC_STATUS_CANCELLED */
     cbs.annotation = (void *)s;
