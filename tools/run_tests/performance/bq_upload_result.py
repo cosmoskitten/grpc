@@ -115,9 +115,11 @@ def _flatten_result_inplace(scenario_result):
   scenario_result['scenario']['clientConfig'] = json.dumps(scenario_result['scenario']['clientConfig'])
   scenario_result['scenario']['serverConfig'] = json.dumps(scenario_result['scenario']['serverConfig'])
   scenario_result['latencies'] = json.dumps(scenario_result['latencies'])
+  scenario_result['serverCpuStats'] = []
   for stats in scenario_result['serverStats']:
-    scenario_result['serverCpuStats']['totalCpuTime'] = stats.pop('totalCpuTime', None)
-    scenario_result['serverCpuStats']['idleCpuTime'] = stats.pop('idleCpuTime', None)
+    scenario_result['serverCpuStats'].append(dict())
+    scenario_result['serverCpuStats'][-1]['totalCpuTime'] = stats.pop('totalCpuTime', None)
+    scenario_result['serverCpuStats'][-1]['idleCpuTime'] = stats.pop('idleCpuTime', None)
   for stats in scenario_result['clientStats']:
     stats['latencies'] = json.dumps(stats['latencies'])
     stats.pop('requestResults', None)
