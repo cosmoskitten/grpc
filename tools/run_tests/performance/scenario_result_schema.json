@@ -213,7 +213,7 @@
     "name": "requestResults",
     "type": "STRING",
     "mode": "NULLABLE"
-  }
+  },
   {
     "name": "serverCpuStats",
     "type": "RECORD",
