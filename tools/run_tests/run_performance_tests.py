@@ -119,7 +119,7 @@ def create_scenario_jobspec(scenario_json, workers, remote_host=None,
   return jobset.JobSpec(
       cmdline=[cmd],
       shortname='qps_json_driver.%s' % scenario_json['name'],
-      timeout_seconds=3*60,
+      timeout_seconds=12*60,
       shell=True,
       verbose_success=True)
 
