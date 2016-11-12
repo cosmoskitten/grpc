@@ -109,7 +109,7 @@ def create_scenario_jobspec(scenario_json, workers, remote_host=None,
     cmd += 'BQ_RESULT_TABLE="%s" ' % bq_result_table
   cmd += 'tools/run_tests/performance/run_qps_driver.sh '
   cmd += '--scenarios_json=%s ' % pipes.quote(json.dumps({'scenarios': [scenario_json]}))
-  cmd += '--scenario_result_file=scenario_result.json'
+  cmd += '--scenario_result_file=scenario_result.json '
   if server_cpu_load != '0':
       cmd += '--search_param=offered_load --initial_search_value=1000 --targeted_cpu_load=%s --stride=500 --error_tolerance=0.01' % server_cpu_load
   if remote_host:
