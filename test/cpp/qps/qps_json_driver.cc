@@ -204,6 +204,7 @@ static bool QpsDriver() {
             SearchOfferedLoad(FLAGS_initial_search_value,
                               FLAGS_targeted_cpu_load, scenario, &success);
         gpr_log(GPR_INFO, "targeted_offered_load %f", targeted_offered_load);
+        RunAndReport(*scenario, &success);
       } else {
         gpr_log(GPR_ERROR, "Unimplemented search param");
       }

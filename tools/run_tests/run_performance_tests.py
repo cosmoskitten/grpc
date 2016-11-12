@@ -101,7 +101,7 @@ def create_qpsworker_job(language, shortname=None,
 
 
 def create_scenario_jobspec(scenario_json, workers, remote_host=None,
-                            bq_result_table=None):
+                            bq_result_table=None, server_cpu_load='0'):
   """Runs one scenario using QPS driver."""
   # setting QPS_WORKERS env variable here makes sure it works with SSH too.
   cmd = 'QPS_WORKERS="%s" ' % ','.join(workers)
@@ -110,6 +110,8 @@ def create_scenario_jobspec(scenario_json, workers, remote_host=None,
   cmd += 'tools/run_tests/performance/run_qps_driver.sh '
   cmd += '--scenarios_json=%s ' % pipes.quote(json.dumps({'scenarios': [scenario_json]}))
   cmd += '--scenario_result_file=scenario_result.json'
+  if server_cpu_load != '0':
+      cmd += '--search_param=offered_load --initial_value=1000 --targeted_cpu_load=%s --stride=500 --error_tolerance=0.01' % server_cpu_load
   if remote_host:
     user_at_host = '%s@%s' % (_REMOTE_HOST_USERNAME, remote_host)
     cmd = 'ssh %s "cd ~/performance_workspace/grpc/ && "%s' % (user_at_host, pipes.quote(cmd))
@@ -285,7 +287,7 @@ Scenario = collections.namedtuple('Scenario', 'jobspec workers name')
 
 def create_scenarios(languages, workers_by_lang, remote_host=None, regex='.*',
                      category='all', bq_result_table=None,
-                     netperf=False, netperf_hosts=[]):
+                     netperf=False, netperf_hosts=[], server_cpu_load='0'):
   """Create jobspecs for scenarios to run."""
   all_workers = [worker
                  for workers in workers_by_lang.values()
@@ -346,7 +348,8 @@ def create_scenarios(languages, workers_by_lang, remote_host=None, regex='.*',
               create_scenario_jobspec(scenario_json,
                                       [w.host_and_port for w in workers],
                                       remote_host=remote_host,
-                                      bq_result_table=bq_result_table),
+                                      bq_result_table=bq_result_table,
+                                      server_cpu_load=server_cpu_load),
               workers,
               scenario_json['name'])
           scenarios.append(scenario)
@@ -403,6 +406,10 @@ argp.add_argument('--netperf',
                   action='store_const',
                   const=True,
                   help='Run netperf benchmark as one of the scenarios.')
+argp.add_argument('--server_cpu_load',
+                  choices=['0','10','20','30','40','50','60','70','80','90'],
+                  default='0',
+                  help='Select a targeted server cpu load to run. 0 means ignore this flag')
 
 args = argp.parse_args()
 
@@ -447,7 +454,8 @@ scenarios = create_scenarios(languages,
                            category=args.category,
                            bq_result_table=args.bq_result_table,
                            netperf=args.netperf,
-                           netperf_hosts=args.remote_worker_host)
+                           netperf_hosts=args.remote_worker_host,
+                           server_cpu_load=args.server_cpu_load)
 
 if not scenarios:
   raise Exception('No scenarios to run')
