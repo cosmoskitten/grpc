@@ -4047,6 +4047,7 @@ LIBGRPC++_CRONET_SRC = \
     src/core/lib/iomgr/resolve_address_windows.c \
     src/core/lib/iomgr/resource_quota.c \
     src/core/lib/iomgr/sockaddr_utils.c \
+    src/core/lib/iomgr/socket_mutator.c \
     src/core/lib/iomgr/socket_utils_common_posix.c \
     src/core/lib/iomgr/socket_utils_linux.c \
     src/core/lib/iomgr/socket_utils_posix.c \
@@ -4080,6 +4081,10 @@ LIBGRPC++_CRONET_SRC = \
     src/core/lib/json/json_reader.c \
     src/core/lib/json/json_string.c \
     src/core/lib/json/json_writer.c \
+    src/core/lib/slice/percent_encoding.c \
+    src/core/lib/slice/slice.c \
+    src/core/lib/slice/slice_buffer.c \
+    src/core/lib/slice/slice_string_helpers.c \
     src/core/lib/surface/alarm.c \
     src/core/lib/surface/api_trace.c \
     src/core/lib/surface/byte_buffer.c \
@@ -4242,6 +4247,8 @@ PUBLIC_HEADERS_CXX += \
     include/grpc/grpc.h \
     include/grpc/grpc_posix.h \
     include/grpc/grpc_security_constants.h \
+    include/grpc/slice.h \
+    include/grpc/slice_buffer.h \
     include/grpc/status.h \
     include/grpc/census.h \
 
