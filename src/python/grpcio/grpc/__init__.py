@@ -833,7 +833,11 @@ class HandlerCallDetails(six.with_metaclass(abc.ABCMeta)):
 
 
 class GenericRpcHandler(six.with_metaclass(abc.ABCMeta)):
-  """An implementation of arbitrarily many RPC methods."""
+  """An implementation of arbitrarily many RPC methods.
+  Attributes:
+    service_names (optional):  If specified, it is an iterable of strings
+    used to hint to the server which services this handler can handle. 
+  """
 
   @abc.abstractmethod
   def service(self, handler_call_details):

@@ -56,6 +56,7 @@ class RpcMethodHandler(
 class DictionaryGenericHandler(grpc.GenericRpcHandler):
 
   def __init__(self, service, method_handlers):
+    self.service_names = (service,)
     self._method_handlers = {
         _common.fully_qualified_method(service, method): method_handler
         for method, method_handler in six.iteritems(method_handlers)}
