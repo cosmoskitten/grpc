@@ -428,11 +428,9 @@ class ClientImpl : public Client {
       for (auto channel_arg : config.channel_args()) {
         if (channel_arg.value_case() == ChannelArg::kStrValue) {
           args->SetString(channel_arg.name(), channel_arg.str_value());
-        }
-        else if (channel_arg.value_case() == ChannelArg::kIntValue) {
+        } else if (channel_arg.value_case() == ChannelArg::kIntValue) {
           args->SetInt(channel_arg.name(), channel_arg.int_value());
-        }
-        else {
+        } else {
           gpr_log(GPR_ERROR, "Empty channel arg value.");
         }
       }
