@@ -43,8 +43,7 @@
 /* --- Constants. --- */
 
 #define GRPC_OPENID_CONFIG_URL_SUFFIX "/.well-known/openid-configuration"
-#define GRPC_GOOGLE_SERVICE_ACCOUNTS_EMAIL_DOMAIN \
-  "developer.gserviceaccount.com"
+#define GRPC_GOOGLE_SERVICE_ACCOUNTS_EMAIL_DOMAIN "gserviceaccount.com"
 #define GRPC_GOOGLE_SERVICE_ACCOUNTS_KEY_URL_PREFIX \
   "www.googleapis.com/robot/v1/metadata/x509"
 
@@ -132,5 +131,6 @@ void grpc_jwt_verifier_verify(grpc_exec_ctx *exec_ctx,
 grpc_jwt_claims *grpc_jwt_claims_from_json(grpc_json *json, grpc_slice buffer);
 grpc_jwt_verifier_status grpc_jwt_claims_check(const grpc_jwt_claims *claims,
                                                const char *audience);
+const char *grpc_jwt_issuer_email_domain(const char *issuer);
 
 #endif /* GRPC_CORE_LIB_SECURITY_CREDENTIALS_JWT_JWT_VERIFIER_H */
