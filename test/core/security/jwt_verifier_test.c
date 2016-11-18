@@ -179,6 +179,38 @@ typedef struct {
   const char *expected_subject;
 } verifier_test_config;
 
+static void test_jwt_issuer_email_domain(void) {
+  const char *d = grpc_jwt_issuer_email_domain("https://foo.com");
+  GPR_ASSERT(d == NULL);
+  d = grpc_jwt_issuer_email_domain("foo.com");
+  GPR_ASSERT(d == NULL);
+  d = grpc_jwt_issuer_email_domain("");
+  GPR_ASSERT(d == NULL);
+  d = grpc_jwt_issuer_email_domain("@");
+  GPR_ASSERT(d == NULL);
+  d = grpc_jwt_issuer_email_domain("bar@foo");
+  GPR_ASSERT(strcmp(d, "foo") == 0);
+  d = grpc_jwt_issuer_email_domain("bar@foo.com");
+  GPR_ASSERT(strcmp(d, "foo.com") == 0);
+  d = grpc_jwt_issuer_email_domain("bar@blah.foo.com");
+  GPR_ASSERT(strcmp(d, "foo.com") == 0);
+  d = grpc_jwt_issuer_email_domain("bar.blah@blah.foo.com");
+  GPR_ASSERT(strcmp(d, "foo.com") == 0);
+  d = grpc_jwt_issuer_email_domain("bar.blah@baz.blah.foo.com");
+  GPR_ASSERT(strcmp(d, "foo.com") == 0);
+
+  /* This is not a very good parser but make sure we do not crash on these weird
+     inputs. */
+  d = grpc_jwt_issuer_email_domain("@foo");
+  GPR_ASSERT(strcmp(d, "foo") == 0);
+  d = grpc_jwt_issuer_email_domain("bar@.");
+  GPR_ASSERT(d != NULL);
+  d = grpc_jwt_issuer_email_domain("bar@..");
+  GPR_ASSERT(d != NULL);
+  d = grpc_jwt_issuer_email_domain("bar@...");
+  GPR_ASSERT(d != NULL);
+}
+
 static void test_claims_success(void) {
   grpc_jwt_claims *claims;
   grpc_slice s = grpc_slice_from_copied_string(claims_without_time_constraint);
@@ -563,6 +595,7 @@ static void test_jwt_verifier_bad_format(void) {
 int main(int argc, char **argv) {
   grpc_test_init(argc, argv);
   grpc_init();
+  test_jwt_issuer_email_domain();
   test_claims_success();
   test_expired_claims_failure();
   test_invalid_claims_failure();
