@@ -44,7 +44,7 @@
 
 #include "src/core/lib/channel/channel_args.h"
 #include "src/core/lib/transport/metadata.h"
-#include "src/core/lib/transport/method_config.h"
+#include "src/core/lib/transport/service_config.h"
 
 #include "test/core/end2end/cq_verifier.h"
 #include "test/core/end2end/tests/cancel_test_helpers.h"
@@ -122,8 +122,10 @@ static void test_cancel_after_accept(grpc_end2end_test_config config,
   size_t details_capacity = 0;
   grpc_byte_buffer *request_payload_recv = NULL;
   grpc_byte_buffer *response_payload_recv = NULL;
-  gpr_slice request_payload_slice = gpr_slice_from_copied_string("hello world");
-  gpr_slice response_payload_slice = gpr_slice_from_copied_string("hello you");
+  grpc_slice request_payload_slice =
+      grpc_slice_from_copied_string("hello world");
+  grpc_slice response_payload_slice =
+      grpc_slice_from_copied_string("hello you");
   grpc_byte_buffer *request_payload =
       grpc_raw_byte_buffer_create(&request_payload_slice, 1);
   grpc_byte_buffer *response_payload =
@@ -132,28 +134,29 @@ static void test_cancel_after_accept(grpc_end2end_test_config config,
 
   grpc_channel_args *args = NULL;
   if (use_service_config) {
-    gpr_timespec timeout = {5, 0, GPR_TIMESPAN};
-    grpc_method_config_table_entry entry = {
-        grpc_mdstr_from_string("/service/method"),
-        grpc_method_config_create(NULL, &timeout, NULL, NULL),
-    };
-    grpc_method_config_table *method_config_table =
-        grpc_method_config_table_create(1, &entry);
-    GRPC_MDSTR_UNREF(entry.method_name);
-    grpc_method_config_unref(entry.method_config);
-    grpc_arg arg =
-        grpc_method_config_table_create_channel_arg(method_config_table);
+    grpc_arg arg;
+    arg.type = GRPC_ARG_STRING;
+    arg.key = GRPC_ARG_SERVICE_CONFIG;
+    arg.value.string =
+        "{\n"
+        "  \"methodConfig\": [ {\n"
+        "    \"name\": [\n"
+        "      { \"service\": \"service\", \"method\": \"method\" }\n"
+        "    ],\n"
+        "    \"timeout\": \"5s\"\n"
+        "  } ]\n"
+        "}";
     args = grpc_channel_args_copy_and_add(args, &arg, 1);
-    grpc_method_config_table_unref(method_config_table);
   }
 
   grpc_end2end_test_fixture f =
       begin_test(config, "cancel_after_accept", args, NULL);
   cq_verifier *cqv = cq_verifier_create(f.cq);
 
-  c = grpc_channel_create_call(f.client, NULL, GRPC_PROPAGATE_DEFAULTS, f.cq,
-                               "/service/method", "foo.test.google.fr",
-                               deadline, NULL);
+  c = grpc_channel_create_call(
+      f.client, NULL, GRPC_PROPAGATE_DEFAULTS, f.cq, "/service/method",
+      get_host_override_string("foo.test.google.fr:1234", config), deadline,
+      NULL);
   GPR_ASSERT(c);
 
   grpc_metadata_array_init(&initial_metadata_recv);

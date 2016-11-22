@@ -410,6 +410,8 @@ argp.add_argument('--server_cpu_load',
                   choices=['0','10','20','30','40','50','60','70','80','90'],
                   default='0',
                   help='Select a targeted server cpu load to run. 0 means ignore this flag')
+argp.add_argument('-x', '--xml_report', default='report.xml', type=str,
+                  help='Name of XML report file to generate.')
 
 args = argp.parse_args()
 
@@ -481,7 +483,7 @@ for scenario in scenarios:
       qps_workers_killed += finish_qps_workers(scenario.workers)
 
 
-report_utils.render_junit_xml_report(merged_resultset, 'report.xml',
+report_utils.render_junit_xml_report(merged_resultset, args.xml_report,
                                      suite_name='benchmarks')
 
 if total_scenario_failures > 0 or qps_workers_killed > 0:
