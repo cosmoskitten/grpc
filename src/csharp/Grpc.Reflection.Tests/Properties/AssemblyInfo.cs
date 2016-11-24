@@ -34,7 +34,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-[assembly: AssemblyTitle("Grpc.HealthCheck.Tests")]
+[assembly: AssemblyTitle("Grpc.Reflection.Tests")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
