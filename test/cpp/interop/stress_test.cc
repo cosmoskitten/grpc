@@ -47,9 +47,9 @@
 #include "src/proto/grpc/testing/metrics.pb.h"
 #include "test/cpp/interop/interop_client.h"
 #include "test/cpp/interop/stress_interop_client.h"
+#include "test/cpp/util/create_test_channel.h"
 #include "test/cpp/util/metrics_server.h"
 #include "test/cpp/util/test_config.h"
-#include "test/cpp/util/create_test_channel.h"
 
 extern "C" {
 extern void gpr_default_log(gpr_log_func_args* args);
@@ -293,7 +293,8 @@ int main(int argc, char** argv) {
          channel_idx++) {
       gpr_log(GPR_INFO, "Starting test with %s channel_idx=%d..", it->c_str(),
               channel_idx);
-      std::shared_ptr<grpc::Channel> channel = grpc::CreateTestChannel(*it, FLAGS_server_host_override, FLAGS_use_tls, !FLAGS_use_test_ca);
+      std::shared_ptr<grpc::Channel> channel = grpc::CreateTestChannel(
+          *it, FLAGS_server_host_override, FLAGS_use_tls, !FLAGS_use_test_ca);
 
       // Create stub(s) for each channel
       for (int stub_idx = 0; stub_idx < FLAGS_num_stubs_per_channel;
