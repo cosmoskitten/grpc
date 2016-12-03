@@ -166,6 +166,13 @@ static const char claims_without_time_constraint[] =
     "  \"jti\": \"jwtuniqueid\","
     "  \"foo\": \"bar\"}";
 
+static const char claims_with_bad_subject[] =
+    "{ \"aud\": \"https://foo.com\","
+    "  \"iss\": \"evil@blah.foo.com\","
+    "  \"sub\": \"juju@blah.foo.com\","
+    "  \"jti\": \"jwtuniqueid\","
+    "  \"foo\": \"bar\"}";
+
 static const char invalid_claims[] =
     "{ \"aud\": \"https://foo.com\","
     "  \"iss\": 46," /* Issuer cannot be a number. */
@@ -271,6 +278,19 @@ static void test_bad_audience_claims_failure(void) {
   GPR_ASSERT(claims != NULL);
   GPR_ASSERT(grpc_jwt_claims_check(claims, "https://bar.com") ==
              GRPC_JWT_VERIFIER_BAD_AUDIENCE);
+  grpc_jwt_claims_destroy(claims);
+}
+
+static void test_bad_subject_claims_failure(void) {
+  grpc_jwt_claims *claims;
+  grpc_slice s = grpc_slice_from_copied_string(claims_with_bad_subject);
+  grpc_json *json = grpc_json_parse_string_with_len(
+      (char *)GRPC_SLICE_START_PTR(s), GRPC_SLICE_LENGTH(s));
+  GPR_ASSERT(json != NULL);
+  claims = grpc_jwt_claims_from_json(json, s);
+  GPR_ASSERT(claims != NULL);
+  GPR_ASSERT(grpc_jwt_claims_check(claims, "https://foo.com") ==
+             GRPC_JWT_VERIFIER_BAD_SUBJECT);
   grpc_jwt_claims_destroy(claims);
 }
 
@@ -600,6 +620,7 @@ int main(int argc, char **argv) {
   test_expired_claims_failure();
   test_invalid_claims_failure();
   test_bad_audience_claims_failure();
+  test_bad_subject_claims_failure();
   test_jwt_verifier_google_email_issuer_success();
   test_jwt_verifier_custom_email_issuer_success();
   test_jwt_verifier_url_issuer_success();

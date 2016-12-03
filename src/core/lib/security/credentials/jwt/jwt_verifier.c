@@ -305,6 +305,17 @@ grpc_jwt_verifier_status grpc_jwt_claims_check(const grpc_jwt_claims *claims,
     return GRPC_JWT_VERIFIER_TIME_CONSTRAINT_FAILURE;
   }
 
+  /* This should be probably up to the upper layer to decide but let's harcode
+     the 99% use case here for email issuers, where the JWT must be self
+     issued. */
+  if (grpc_jwt_issuer_email_domain(claims->iss) != NULL &&
+      claims->sub != NULL && strcmp(claims->iss, claims->sub) != 0) {
+    gpr_log(GPR_ERROR,
+            "Email issuer (%s) cannot assert another subject (%s) than itself.",
+            claims->iss, claims->sub);
+    return GRPC_JWT_VERIFIER_BAD_SUBJECT;
+  }
+
   if (audience == NULL) {
     audience_ok = claims->aud == NULL;
   } else {
