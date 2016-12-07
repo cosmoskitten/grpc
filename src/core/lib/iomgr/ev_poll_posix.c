@@ -30,7 +30,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
+#include <stdio.h>
 #include "src/core/lib/iomgr/port.h"
 
 #ifdef GRPC_POSIX_SOCKET
@@ -274,6 +274,7 @@ typedef struct poll_args {
   struct pollfd *fds;
   nfds_t nfds;
   poll_result* result;
+  struct poll_args* next;
 } poll_args;
 
 typedef struct poll_hash_table {
@@ -1317,10 +1318,12 @@ static void workqueue_enqueue(grpc_exec_ctx *exec_ctx,
 static poll_args* get_poller_locked(struct pollfd *fds, nfds_t count) {
   uint32_t key = gpr_murmur_hash3(fds, count * sizeof(struct pollfd), 0xDEADBEEF);
   key = key % poll_cache.size;
-  poll_args* res = poll_cache.active_pollers[key];
-  if (res && res->nfds == count &&
-      memcmp(res->fds, fds, count * sizeof(struct pollfd)) == 0) {
-    return res;
+  poll_args* curr = poll_cache.active_pollers[key];
+  while(curr) {
+    if (curr->nfds == count && memcmp(curr->fds, fds, count * sizeof(struct pollfd)) == 0) {
+      return curr;
+    }
+    curr = curr->next;
   }
   return NULL;
 }
@@ -1337,19 +1340,28 @@ static int pollers_eq(poll_args* args1, poll_args* args2) {
 static void cache_delete_locked(poll_args* args) {
   uint32_t key = gpr_murmur_hash3(args->fds, args->nfds * sizeof(struct pollfd), 0xDEADBEEF);
   key = key % poll_cache.size;
-  if (pollers_eq(args, poll_cache.active_pollers[key])) {
-    poll_cache.active_pollers[key] = NULL;
-    poll_cache.count--;
+  poll_args *curr, *prev;
+  curr = poll_cache.active_pollers[key];
+  prev = NULL;
+  while (curr && !pollers_eq(args, curr)) {
+    prev = curr;
+    curr = curr->next;
   }
+  GPR_ASSERT(curr);
+  if (!prev) {
+    poll_cache.active_pollers[key] = curr->next;
+  } else {
+    prev->next = curr->next;
+  }
+  poll_cache.count--;
 }
 
 static void cache_insert_locked(poll_args* args) {
   uint32_t key = gpr_murmur_hash3(args->fds, args->nfds * sizeof(struct pollfd), 0xDEADBEEF);
   key = key % poll_cache.size;
-  if (!poll_cache.active_pollers[key]) {
-    poll_cache.count++;
-  }
+  args->next = poll_cache.active_pollers[key];
   poll_cache.active_pollers[key] = args;
+  poll_cache.count++;
 }
 
 
@@ -1363,8 +1375,12 @@ static void cache_poller_locked(poll_args* args) {
       poll_cache.active_pollers[i] = NULL;
     }
     for (unsigned int i = 0; i < poll_cache.size/2; i++) {
-      if(old_active_pollers[i]) {
+      poll_args* next = NULL;
+      while(old_active_pollers[i]) {
+        next = old_active_pollers[i]->next;
+        old_active_pollers[i]->next = NULL;
         cache_insert_locked(old_active_pollers[i]);
+        old_active_pollers[i] = next;
       }
     }
     gpr_free(old_active_pollers);
@@ -1521,6 +1537,7 @@ static int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
       gpr_cv_init(&pargs->trigger);
       pargs->fds = pollfds;
       pargs->nfds = nsockfds;
+      pargs->next = NULL;
       init_result(pargs);
       cache_poller_locked(pargs);
       opt = gpr_thd_options_default();
