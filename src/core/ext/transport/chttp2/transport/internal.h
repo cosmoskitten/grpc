@@ -50,6 +50,7 @@
 #include "src/core/ext/transport/chttp2/transport/stream_map.h"
 #include "src/core/lib/iomgr/combiner.h"
 #include "src/core/lib/iomgr/endpoint.h"
+#include "src/core/lib/iomgr/timer.h"
 #include "src/core/lib/transport/connectivity_state.h"
 #include "src/core/lib/transport/transport_impl.h"
 
@@ -341,6 +342,18 @@ struct grpc_chttp2_transport {
   /** destructive cleanup closure */
   grpc_closure destructive_reclaimer;
   grpc_closure destructive_reclaimer_locked;
+
+  /* keep-alive ping support */
+  /** timer to initiate ping events */
+  grpc_timer keepalive_ping_timer;
+  /** watchdog to kill the transport when waiting for the keepalive ping */
+  grpc_timer keepalive_watchdog_timer;
+  /** time duration between transport initialization and first ping */
+  gpr_timespec keepalive_init_delta_t;
+  /** time duration in between pings */
+  gpr_timespec keepalive_ping_delta_t;
+  /** grace period for a ping to complete before watchdog kicks in */
+  gpr_timespec keepalive_grace_delta_t;
 };
 
 typedef enum {

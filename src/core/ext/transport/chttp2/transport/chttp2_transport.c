@@ -50,11 +50,13 @@
 #include "src/core/lib/channel/channel_args.h"
 #include "src/core/lib/http/parser.h"
 #include "src/core/lib/iomgr/workqueue.h"
+#include "src/core/lib/iomgr/timer.h"
 #include "src/core/lib/profiling/timers.h"
 #include "src/core/lib/slice/slice_string_helpers.h"
 #include "src/core/lib/support/string.h"
 #include "src/core/lib/transport/static_metadata.h"
 #include "src/core/lib/transport/timeout_encoding.h"
+#include "src/core/lib/transport/transport.h"
 #include "src/core/lib/transport/transport_impl.h"
 
 #define DEFAULT_WINDOW 65535
@@ -131,12 +133,20 @@ static void close_transport_locked(grpc_exec_ctx *exec_ctx,
 static void end_all_the_calls(grpc_exec_ctx *exec_ctx, grpc_chttp2_transport *t,
                               grpc_error *error);
 
+/** keepalive-relevant functions (TODO: better description/organization) */
+static void keepalive_ping_end(grpc_exec_ctx *exec_ctx, void *arg,
+                               grpc_error *error);
+static void send_ping_locked(grpc_exec_ctx *exec_ctx, grpc_chttp2_transport *t,
+                             grpc_closure *on_recv);
+
 /*******************************************************************************
  * CONSTRUCTION/DESTRUCTION/REFCOUNTING
  */
 
 static void destruct_transport(grpc_exec_ctx *exec_ctx,
                                grpc_chttp2_transport *t) {
+  grpc_timer_cancel(exec_ctx, &t->keepalive_ping_timer);
+
   size_t i;
 
   grpc_endpoint_destroy(exec_ctx, t->ep);
@@ -208,6 +218,60 @@ void grpc_chttp2_unref_transport(grpc_exec_ctx *exec_ctx,
 
 void grpc_chttp2_ref_transport(grpc_chttp2_transport *t) { gpr_ref(&t->refs); }
 #endif
+
+typedef struct {
+  grpc_closure *closure;
+  grpc_combiner *combiner;
+} combiner_closure_arg;
+static void invoke_combiner_closure(grpc_exec_ctx *exec_ctx, void *arg,
+                                    grpc_error *error) {
+  combiner_closure_arg *cc = (combiner_closure_arg *)arg;
+  GRPC_ERROR_REF(error);
+  grpc_combiner_execute(exec_ctx, cc->combiner, cc->closure, error, false);
+  gpr_free(cc);
+}
+static grpc_closure *wrap_closure_in_combiner(grpc_closure *closure,
+                                              grpc_combiner *combiner) {
+  combiner_closure_arg *cc =
+      (combiner_closure_arg *)gpr_malloc(sizeof(combiner_closure_arg));
+  cc->closure = closure;
+  cc->combiner = combiner;
+  return grpc_closure_create(invoke_combiner_closure, cc);
+}
+static combiner_closure_arg *make_combiner_closure_arg(
+    grpc_iomgr_cb_func cb, void *arg, grpc_combiner *combiner) {
+  combiner_closure_arg *cc =
+      (combiner_closure_arg *)gpr_malloc(sizeof(combiner_closure_arg));
+  cc->closure = grpc_closure_create(cb, arg);
+  cc->combiner = combiner;
+  return cc;
+}
+
+static void keepalive_ping_start(grpc_exec_ctx *exec_ctx, void *arg,
+                                 grpc_error *error) {
+  grpc_chttp2_transport *t = arg;
+  if (error == GRPC_ERROR_NONE) {
+    send_ping_locked(
+        exec_ctx, t,
+        wrap_closure_in_combiner(
+            grpc_closure_create(keepalive_ping_end, t), t->combiner));
+  } else {
+    GRPC_CHTTP2_UNREF_TRANSPORT(exec_ctx, t, "existential reason of existence");
+  }
+}
+
+static void keepalive_ping_end(grpc_exec_ctx *exec_ctx, void *arg,
+                               grpc_error *error) {
+  grpc_chttp2_transport *t = arg;
+  //GRPC_CHTTP2_UNREF_TRANSPORT(exec_ctx, t, "existential reason of existence");
+  grpc_timer_init(exec_ctx, &t->keepalive_ping_timer,
+                  gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
+                               t->keepalive_ping_delta_t),
+                  keepalive_ping_start, t, gpr_now(GPR_CLOCK_MONOTONIC));
+}
+
+//static void keepalive_watchdog(grpc_exec_ctx *exec_ctx, void *arg,
+//                               grpc_error *error) {}
 
 static void init_transport(grpc_exec_ctx *exec_ctx, grpc_chttp2_transport *t,
                            const grpc_channel_args *channel_args,
@@ -377,6 +441,18 @@ static void init_transport(grpc_exec_ctx *exec_ctx, grpc_chttp2_transport *t,
       }
     }
   }
+
+  t->keepalive_init_delta_t = gpr_time_from_seconds(10, GPR_TIMESPAN);
+  t->keepalive_ping_delta_t = gpr_time_from_seconds(10, GPR_TIMESPAN);
+  t->keepalive_grace_delta_t = gpr_time_from_seconds(10, GPR_TIMESPAN);
+  combiner_closure_arg *keepalive_init_combiner_closure_arg =
+      make_combiner_closure_arg(keepalive_ping_start, t, t->combiner);
+  grpc_timer_init(exec_ctx, &t->keepalive_ping_timer,
+                  gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
+                               t->keepalive_init_delta_t),
+                  invoke_combiner_closure, keepalive_init_combiner_closure_arg,
+                  gpr_now(GPR_CLOCK_MONOTONIC));
+  GRPC_CHTTP2_REF_TRANSPORT(t, "existential reason for existence");
 
   grpc_chttp2_initiate_write(exec_ctx, t, false, "init");
   post_benign_reclaimer(exec_ctx, t);
