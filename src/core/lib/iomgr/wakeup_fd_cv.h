@@ -58,6 +58,7 @@
 typedef struct cv_node {
   gpr_cv* cv;
   struct cv_node* next;
+  struct cv_node* prev;
 } cv_node;
 
 typedef struct fd_node {

@@ -254,7 +254,7 @@ struct grpc_pollset_set {
  * condition variable polling definitions
  */
 
-#define POLLCV_THREAD_GRACE_MS 500
+#define POLLCV_THREAD_GRACE_MS 1000
 #define CV_POLL_PERIOD_MS 1000
 #define CV_DEFAULT_TABLE_SIZE 16
 
@@ -1410,20 +1410,16 @@ void init_result(poll_args* pargs) {
   pargs->result->completed = 0;
 }
 
-cv_node* remove_cvn(cv_node** list, gpr_cv* target) {
-  cv_node* cvn = *list;
-  cv_node* prev = NULL;
-  while (cvn->cv != target) {
-    prev = cvn;
-    cvn = cvn->next;
-    GPR_ASSERT(cvn);
+void remove_cvn(cv_node** head, cv_node* target) {
+  if (target->next) {
+    target->next->prev = target->prev;
   }
-  if (!prev) {
-    *list = cvn->next;
+
+  if (target->prev)  {
+    target->prev->next = target->next;
   } else {
-    prev->next = cvn->next;
+    *head = target->next;
   }
-  return cvn;
 }
 
 
@@ -1480,7 +1476,6 @@ static int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
   unsigned int i;
   int res, idx;
   cv_node *pollcv;
-  cv_node *cvn;
   int skip_poll = 0;
   nfds_t nsockfds = 0;
   gpr_thd_id t_id;
@@ -1492,14 +1487,19 @@ static int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
   gpr_cv pollcv_cv;
   gpr_cv_init(&pollcv_cv);
   pollcv->cv = &pollcv_cv;
+  cv_node *fd_cvs = gpr_malloc(nfds * sizeof(cv_node));
+
   for (i = 0; i < nfds; i++) {
     fds[i].revents = 0;
     if (fds[i].fd < 0 && (fds[i].events & POLLIN)) {
       idx = FD_TO_IDX(fds[i].fd);
-      cvn = gpr_malloc(sizeof(cv_node));
-      cvn->cv = pollcv->cv;
-      cvn->next = g_cvfds.cvfds[idx].cvs;
-      g_cvfds.cvfds[idx].cvs = cvn;
+      fd_cvs[i].cv = &pollcv_cv;
+      fd_cvs[i].prev = NULL;
+      fd_cvs[i].next = g_cvfds.cvfds[idx].cvs;
+      if(g_cvfds.cvfds[idx].cvs) {
+        g_cvfds.cvfds[idx].cvs->prev = &(fd_cvs[i]);
+      }
+      g_cvfds.cvfds[idx].cvs = &(fd_cvs[i]);
       // Don't bother polling if a wakeup fd is ready
       if (g_cvfds.cvfds[idx].is_set) {
         skip_poll = 1;
@@ -1547,6 +1547,10 @@ static int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     }
     result = pargs->result;
     pollcv->next = result->watchers;
+    pollcv->prev = NULL;
+    if (result->watchers) {
+      result->watchers->prev = pollcv;
+    }
     result->watchers = pollcv;
     result->watchcount++;
     gpr_ref(&result->refcount);
@@ -1556,7 +1560,7 @@ static int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     res = result->retval;
     errno = result->err;
     result->watchcount--;
-    remove_cvn(&result->watchers, &pollcv_cv);
+    remove_cvn(&result->watchers, pollcv);
   } else if (!skip_poll) {
     gpr_cv_wait(&pollcv_cv, &g_cvfds.mu, deadline);
   }
@@ -1564,8 +1568,7 @@ static int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
   idx = 0;
   for (i = 0; i < nfds; i++) {
     if (fds[i].fd < 0 && (fds[i].events & POLLIN)) {
-      gpr_free(remove_cvn(&g_cvfds.cvfds[FD_TO_IDX(fds[i].fd)].cvs, &pollcv_cv));
-
+      remove_cvn(&g_cvfds.cvfds[FD_TO_IDX(fds[i].fd)].cvs, &(fd_cvs[i]));
       if (g_cvfds.cvfds[FD_TO_IDX(fds[i].fd)].is_set) {
         fds[i].revents = POLLIN;
         if (res >= 0) res++;
@@ -1576,6 +1579,7 @@ static int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     }
   }
 
+  gpr_free(fd_cvs);
   gpr_free(pollcv);
   if(result) {
     decref_poll_result(result);
