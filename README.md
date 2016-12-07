@@ -17,7 +17,9 @@ See [INSTALL](INSTALL.md) for installation instructions for various platforms.
 
 See [tools/run_tests](tools/run_tests) for more guidance on how to run various test suites (e.g. unit tests, interop tests, benchmarks)
 
-See [Performance dashboard](http://performance-dot-grpc-testing.appspot.com/explore?dashboard=5712453606309888) for the performance numbers for v1.0.x.
+See [performance dashboard for v1.0.x](http://performance-dot-grpc-testing.appspot.com/explore?dashboard=5712453606309888) for the benchmark numbers for v1.0.x.
+
+See [performance dashboard for master](http://performance-dot-grpc-testing.appspot.com/explore?dashboard=5652536396611584) for the benchmark numbers for the master branch.
 
 #Repository Structure & Status
 
