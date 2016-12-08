@@ -39,14 +39,18 @@ var common = require('../src/common.js');
 
 var ProtoBuf = require('protobufjs');
 
-var messages_proto = ProtoBuf.loadProtoFile(
-    __dirname + '/test_messages.proto').build();
-
 describe('Proto message long int serialize and deserialize', function() {
-  var longSerialize = common.serializeCls(messages_proto.LongValues);
-  var longDeserialize = common.deserializeCls(messages_proto.LongValues);
+  var longSerialize;
+  var longDeserialize;
   var pos_value = '314159265358979';
   var neg_value = '-27182818284590';
+  before(function(done) {
+    ProtoBuf.load(__dirname + '/test_messages.proto', function(err, messages_proto) {
+      longSerialize = common.serializeCls(messages_proto.lookup('LongValues'))
+      longDeserialize = common.deserializeCls(messages_proto.lookup('LongValues'))
+      done();
+    });
+  });
   it('should preserve positive int64 values', function() {
     var serialized = longSerialize({int_64: pos_value});
     assert.strictEqual(longDeserialize(serialized).int_64.toString(),
@@ -98,27 +102,19 @@ describe('Proto message long int serialize and deserialize', function() {
   });
 });
 describe('Proto message bytes serialize and deserialize', function() {
-  var sequenceSerialize = common.serializeCls(messages_proto.SequenceValues);
-  var sequenceDeserialize = common.deserializeCls(
-      messages_proto.SequenceValues);
-  var sequenceBase64Deserialize = common.deserializeCls(
-      messages_proto.SequenceValues, true);
+  var sequenceSerialize, sequenceDeserialize;
   var buffer_val = new Buffer([0x69, 0xb7]);
-  var base64_val = 'abc=';
+  before(function(done) {
+    ProtoBuf.load(__dirname + '/test_messages.proto', function(err, messages_proto) {
+      sequenceSerialize = common.serializeCls(messages_proto.lookup('SequenceValues'))
+      sequenceDeserialize = common.deserializeCls(messages_proto.lookup('SequenceValues'))
+      done();
+    });
+  });
   it('should preserve a buffer', function() {
     var serialized = sequenceSerialize({bytes_field: buffer_val});
     var deserialized = sequenceDeserialize(serialized);
     assert.strictEqual(deserialized.bytes_field.compare(buffer_val), 0);
-  });
-  it('should accept base64 encoded strings', function() {
-    var serialized = sequenceSerialize({bytes_field: base64_val});
-    var deserialized = sequenceDeserialize(serialized);
-    assert.strictEqual(deserialized.bytes_field.compare(buffer_val), 0);
-  });
-  it('should output base64 encoded strings with an option set', function() {
-    var serialized = sequenceSerialize({bytes_field: base64_val});
-    var deserialized = sequenceBase64Deserialize(serialized);
-    assert.strictEqual(deserialized.bytes_field, base64_val);
   });
   /* The next two tests are specific tests to verify that issue
    * https://github.com/grpc/grpc/issues/5174 has been fixed. They are skipped

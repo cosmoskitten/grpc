@@ -36,8 +36,6 @@
 var assert = require('assert');
 
 var grpc = require('..');
-var math = grpc.load(__dirname + '/../../proto/math/math.proto').math;
-
 
 /**
  * Client to use to make requests to a running server.
@@ -56,9 +54,12 @@ describe('Async functionality', function() {
     var port_num = server.bind('0.0.0.0:0',
                                grpc.ServerCredentials.createInsecure());
     server.start();
-    math_client = new math.Math('localhost:' + port_num,
-                                grpc.credentials.createInsecure());
-    done();
+
+    grpc.load(__dirname + '/../../proto/math/math.proto', function(err, math) {
+      math_client = new math.Math('localhost:' + port_num,
+                                  grpc.credentials.createInsecure());
+      done();
+    });
   });
   after(function() {
     grpc.closeClient(math_client);

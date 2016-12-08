@@ -41,12 +41,12 @@ var ProtoBuf = require('protobufjs');
 
 var grpc = require('..');
 
-var math_proto = ProtoBuf.loadProtoFile(__dirname +
-    '/../../proto/math/math.proto');
-
-var mathService = math_proto.lookup('math.Math');
-
 var _ = require('lodash');
+
+function loadMathProto(callback) {
+  ProtoBuf.load(__dirname +
+    '/../../proto/math/math.proto', callback);
+}
 
 /**
  * This is used for testing functions with multiple asynchronous calls that
@@ -120,12 +120,20 @@ describe('surface Server', function() {
 });
 describe('Server.prototype.addProtoService', function() {
   var server;
+  var mathProtoRoot;
+  var mathService;
   var dummyImpls = {
     'div': function() {},
     'divMany': function() {},
     'fib': function() {},
     'sum': function() {}
   };
+  before(function(done) {
+    loadMathProto(function(err, res) {
+      mathProtoRoot = res;
+      mathService = res.lookup('math.Math');
+    });
+  });
   beforeEach(function() {
     server = new grpc.Server();
   });

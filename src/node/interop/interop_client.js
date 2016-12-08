@@ -36,9 +36,7 @@
 var fs = require('fs');
 var path = require('path');
 var grpc = require('..');
-var testProto = grpc.load({
-  root: __dirname + '/../../..',
-  file: 'src/proto/grpc/testing/test.proto'}).grpc.testing;
+
 var GoogleAuth = require('google-auth-library');
 
 var assert = require('assert');
@@ -511,49 +509,56 @@ function getOauth2Creds(scope, callback) {
 }
 
 /**
- * Map from test case names to test functions
+ * @param {function(Object=)} callback Callback with a map from case names to functions.
+ * @return {undefined}
  */
-var test_cases = {
-  empty_unary: {run: emptyUnary,
-                Client: testProto.TestService},
-  large_unary: {run: largeUnary,
-                Client: testProto.TestService},
-  client_streaming: {run: clientStreaming,
-                     Client: testProto.TestService},
-  server_streaming: {run: serverStreaming,
-                     Client: testProto.TestService},
-  ping_pong: {run: pingPong,
-              Client: testProto.TestService},
-  empty_stream: {run: emptyStream,
-                 Client: testProto.TestService},
-  cancel_after_begin: {run: cancelAfterBegin,
-                       Client: testProto.TestService},
-  cancel_after_first_response: {run: cancelAfterFirstResponse,
-                                Client: testProto.TestService},
-  timeout_on_sleeping_server: {run: timeoutOnSleepingServer,
-                               Client: testProto.TestService},
-  custom_metadata: {run: customMetadata,
+var test_cases = function(callback) {
+  grpc.load(__dirname + '/../../../src/proto/grpc/testing/test.proto',
+    function(err, testProtoRoot) {
+      var testProto = testProtoRoot.grpc.testing;
+      callback({
+        empty_unary: {run: emptyUnary,
+                      Client: testProto.TestService},
+        large_unary: {run: largeUnary,
+                      Client: testProto.TestService},
+        client_streaming: {run: clientStreaming,
+                           Client: testProto.TestService},
+        server_streaming: {run: serverStreaming,
+                           Client: testProto.TestService},
+        ping_pong: {run: pingPong,
                     Client: testProto.TestService},
-  status_code_and_message: {run: statusCodeAndMessage,
-                            Client: testProto.TestService},
-  unimplemented_service: {run: unimplementedService,
-                         Client: testProto.UnimplementedService},
-  unimplemented_method: {run: unimplementedMethod,
-                         Client: testProto.TestService},
-  compute_engine_creds: {run: computeEngineCreds,
-                         Client: testProto.TestService,
-                         getCreds: getApplicationCreds},
-  service_account_creds: {run: serviceAccountCreds,
+        empty_stream: {run: emptyStream,
+                       Client: testProto.TestService},
+        cancel_after_begin: {run: cancelAfterBegin,
+                             Client: testProto.TestService},
+        cancel_after_first_response: {run: cancelAfterFirstResponse,
+                                      Client: testProto.TestService},
+        timeout_on_sleeping_server: {run: timeoutOnSleepingServer,
+                                     Client: testProto.TestService},
+        custom_metadata: {run: customMetadata,
+                          Client: testProto.TestService},
+        status_code_and_message: {run: statusCodeAndMessage,
+                                  Client: testProto.TestService},
+        unimplemented_service: {run: unimplementedService,
+                               Client: testProto.UnimplementedService},
+        unimplemented_method: {run: unimplementedMethod,
+                               Client: testProto.TestService},
+        compute_engine_creds: {run: computeEngineCreds,
+                               Client: testProto.TestService,
+                               getCreds: getApplicationCreds},
+        service_account_creds: {run: serviceAccountCreds,
+                                Client: testProto.TestService,
+                                getCreds: getApplicationCreds},
+        jwt_token_creds: {run: jwtTokenCreds,
                           Client: testProto.TestService,
                           getCreds: getApplicationCreds},
-  jwt_token_creds: {run: jwtTokenCreds,
-                    Client: testProto.TestService,
-                    getCreds: getApplicationCreds},
-  oauth2_auth_token: {run: oauth2Test,
-                      Client: testProto.TestService,
-                      getCreds: getOauth2Creds},
-  per_rpc_creds: {run: perRpcAuthTest,
-                  Client: testProto.TestService}
+        oauth2_auth_token: {run: oauth2Test,
+                            Client: testProto.TestService,
+                            getCreds: getOauth2Creds},
+        per_rpc_creds: {run: perRpcAuthTest,
+                        Client: testProto.TestService}
+      });
+    });
 };
 
 exports.test_cases = test_cases;

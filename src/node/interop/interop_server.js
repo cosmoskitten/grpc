@@ -38,9 +38,6 @@ var path = require('path');
 var _ = require('lodash');
 var AsyncDelayQueue = require('./async_delay_queue');
 var grpc = require('..');
-var testProto = grpc.load({
-  root: __dirname + '/../../..',
-  file: 'src/proto/grpc/testing/test.proto'}).grpc.testing;
 
 var ECHO_INITIAL_KEY = 'x-grpc-test-echo-initial';
 var ECHO_TRAILING_KEY = 'x-grpc-test-echo-trailing-bin';
@@ -208,36 +205,41 @@ function handleHalfDuplex(call) {
  * Get a server object bound to the given port
  * @param {string} port Port to which to bind
  * @param {boolean} tls Indicates that the bound port should use TLS
- * @return {{server: Server, port: number}} Server object bound to the support,
+ * @param {function({server: Server, port: number})} callback Server object bound to the support,
  *     and port number that the server is bound to
+ * @return {undefined}
  */
-function getServer(port, tls) {
-  // TODO(mlumish): enable TLS functionality
-  var options = {};
-  var server_creds;
-  if (tls) {
-    var key_path = path.join(__dirname, '../test/data/server1.key');
-    var pem_path = path.join(__dirname, '../test/data/server1.pem');
+function getServer(port, tls, callback) {
+  grpc.load(__dirname + '/../../../src/proto/grpc/testing/test.proto',
+    function(err, testProtoRoot) {
+    var testProto = testProtoRoot.grpc.testing;
+    // TODO(mlumish): enable TLS functionality
+    var options = {};
+    var server_creds;
+    if (tls) {
+      var key_path = path.join(__dirname, '../test/data/server1.key');
+      var pem_path = path.join(__dirname, '../test/data/server1.pem');
 
-    var key_data = fs.readFileSync(key_path);
-    var pem_data = fs.readFileSync(pem_path);
-    server_creds = grpc.ServerCredentials.createSsl(null,
-                                                    [{private_key: key_data,
-                                                      cert_chain: pem_data}]);
-  } else {
-    server_creds = grpc.ServerCredentials.createInsecure();
-  }
-  var server = new grpc.Server(options);
-  server.addProtoService(testProto.TestService.service, {
-    emptyCall: handleEmpty,
-    unaryCall: handleUnary,
-    streamingOutputCall: handleStreamingOutput,
-    streamingInputCall: handleStreamingInput,
-    fullDuplexCall: handleFullDuplex,
-    halfDuplexCall: handleHalfDuplex
+      var key_data = fs.readFileSync(key_path);
+      var pem_data = fs.readFileSync(pem_path);
+      server_creds = grpc.ServerCredentials.createSsl(null,
+                                                      [{private_key: key_data,
+                                                        cert_chain: pem_data}]);
+    } else {
+      server_creds = grpc.ServerCredentials.createInsecure();
+    }
+    var server = new grpc.Server(options);
+    server.addProtoService(testProto.TestService.service, {
+      emptyCall: handleEmpty,
+      unaryCall: handleUnary,
+      streamingOutputCall: handleStreamingOutput,
+      streamingInputCall: handleStreamingInput,
+      fullDuplexCall: handleFullDuplex,
+      halfDuplexCall: handleHalfDuplex
+    });
+    var port_num = server.bind('0.0.0.0:' + port, server_creds);
+    callback({server: server, port: port_num});
   });
-  var port_num = server.bind('0.0.0.0:' + port, server_creds);
-  return {server: server, port: port_num};
 }
 
 if (require.main === module) {

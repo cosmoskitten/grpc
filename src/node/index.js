@@ -55,25 +55,32 @@ var grpc = require('./src/grpc_extension');
 grpc.setDefaultRootsPem(fs.readFileSync(SSL_ROOTS_PATH, 'ascii'));
 
 /**
- * Load a gRPC object from an existing ProtoBuf.Reflect object.
- * @param {ProtoBuf.Reflect.Namespace} value The ProtoBuf object to load.
+ * Build a gRPC object from an existing ProtoBuf.Root object.
+ * @param {ProtoBuf.Root} value The ProtoBuf root object to transform.
  * @param {Object=} options Options to apply to the loaded object
- * @return {Object<string, *>} The resulting gRPC object
+ * @return {ProtoBuf.Root} The transformed Root object.
  */
 exports.loadObject = function loadObject(value, options) {
-  var result = {};
-  if (value.className === 'Namespace') {
-    _.each(value.children, function(child) {
-      result[child.name] = loadObject(child, options);
-    });
-    return result;
-  } else if (value.className === 'Service') {
-    return client.makeProtobufClientConstructor(value, options);
-  } else if (value.className === 'Message' || value.className === 'Enum') {
-    return value.build();
-  } else {
-    return value;
+  if (!value.resolved && value.resolveAll) {
+    value.resolveAll();
   }
+
+  // Protobuf.JS 6 trees don't work the same way as in ProtoBuf.JS 5.
+  // Now, we can just swap out the Services in the tree.
+  if (value.constructor === ProtoBuf.Service) {
+    return client.makeProtobufClientConstructor(value, options);
+  }
+
+  if (value.nested) {
+    for (let name in value.nested) {
+      if (!value.nested.hasOwnProperty(name)) {
+        continue;
+      }
+      value.nested[name] = loadObject(value.nested[name], options);
+    }
+  }
+
+  return value;
 };
 
 var loadObject = exports.loadObject;
@@ -81,47 +88,27 @@ var loadObject = exports.loadObject;
 /**
  * Load a gRPC object from a .proto file. The options object can provide the
  * following options:
- * - convertFieldsToCamelCase: Loads this file with that option on protobuf.js
- *   set as specified. See
- *   https://github.com/dcodeIO/protobuf.js/wiki/Advanced-options for details
  * - binaryAsBase64: deserialize bytes values as base64 strings instead of
  *   Buffers. Defaults to false
  * - longsAsStrings: deserialize long values as strings instead of objects.
  *   Defaults to true
- * - deprecatedArgumentOrder: Use the beta method argument order for client
- *   methods, with optional arguments after the callback. Defaults to false.
- *   This option is only a temporary stopgap measure to smooth an API breakage.
- *   It is deprecated, and new code should not use it.
- * @param {string|{root: string, file: string}} filename The file to load
- * @param {string=} format The file format to expect. Must be either 'proto' or
- *     'json'. Defaults to 'proto'
+ * @param {string} filename The file to load
  * @param {Object=} options Options to apply to the loaded file
- * @return {Object<string, *>} The resulting gRPC object
+ * @param {function(?Error, ProtoBuf.Root=)} callback Callback function for result.
+ * @return {undefined}
  */
-exports.load = function load(filename, format, options) {
-  if (!format) {
-    format = 'proto';
+exports.load = function load(filename, options, callback) {
+  if (typeof options === 'function') {
+    callback = options;
+    options = undefined;
   }
-  var convertFieldsToCamelCaseOriginal = ProtoBuf.convertFieldsToCamelCase;
-  if(options && options.hasOwnProperty('convertFieldsToCamelCase')) {
-    ProtoBuf.convertFieldsToCamelCase = options.convertFieldsToCamelCase;
-  }
-  var builder;
-  try {
-    switch(format) {
-      case 'proto':
-      builder = ProtoBuf.loadProtoFile(filename);
-      break;
-      case 'json':
-      builder = ProtoBuf.loadJsonFile(filename);
-      break;
-      default:
-      throw new Error('Unrecognized format "' + format + '"');
+  var rootNs = new ProtoBuf.Root();
+  rootNs.load(filename, function(err, res) {
+    if (err) {
+      return callback(err, undefined);
     }
-  } finally {
-    ProtoBuf.convertFieldsToCamelCase = convertFieldsToCamelCaseOriginal;
-  }
-  return loadObject(builder.ns, options);
+    return callback(null, loadObject(res, options));
+  });
 };
 
 var log_template = _.template(
