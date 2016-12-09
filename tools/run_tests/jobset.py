@@ -49,11 +49,21 @@ measure_cpu_costs = False
 _DEFAULT_MAX_JOBS = 16 * multiprocessing.cpu_count()
 _MAX_RESULT_SIZE = 8192
 
+
+# NOTE: If you change this, please make sure to test reviewing the
+# github PR with http://reviewable.io, which is known to add UTF-8
+# characters to the PR description, which leak into the environment here
+# and cause failures.
+def strip_non_ascii_chars(s):
+  return ''.join(c for c in s if ord(c) < 128)
+
+
 def sanitized_environment(env):
   sanitized = {}
   for key, value in env.items():
-    sanitized[str(key).encode()] = str(value).encode()
+    sanitized[strip_non_ascii_chars(key)] = strip_non_ascii_chars(value)
   return sanitized
+
 
 def platform_string():
   if platform.system() == 'Windows':
@@ -96,6 +106,7 @@ _COLORS = {
     'lightgray': [ 37, 0],
     'gray': [ 30, 1 ],
     'purple': [ 35, 0 ],
+    'cyan': [ 36, 0 ]
     }
 
 
@@ -114,6 +125,7 @@ _TAG_COLOR = {
     'WAITING': 'yellow',
     'SUCCESS': 'green',
     'IDLE': 'gray',
+    'SKIPPED': 'cyan'
     }
 
 
@@ -127,16 +139,16 @@ def message(tag, msg, explanatory_text=None, do_newline=False):
       if explanatory_text:
         print(explanatory_text)
       print('%s: %s' % (tag, msg))
-      return
-    sys.stdout.write('%s%s%s\x1b[%d;%dm%s\x1b[0m: %s%s' % (
-        _BEGINNING_OF_LINE,
-        _CLEAR_LINE,
-        '\n%s' % explanatory_text if explanatory_text is not None else '',
-        _COLORS[_TAG_COLOR[tag]][1],
-        _COLORS[_TAG_COLOR[tag]][0],
-        tag,
-        msg,
-        '\n' if do_newline or explanatory_text is not None else ''))
+    else:
+      sys.stdout.write('%s%s%s\x1b[%d;%dm%s\x1b[0m: %s%s' % (
+          _BEGINNING_OF_LINE,
+          _CLEAR_LINE,
+          '\n%s' % explanatory_text if explanatory_text is not None else '',
+          _COLORS[_TAG_COLOR[tag]][1],
+          _COLORS[_TAG_COLOR[tag]][0],
+          tag,
+          msg,
+          '\n' if do_newline or explanatory_text is not None else ''))
     sys.stdout.flush()
   except:
     pass
@@ -394,7 +406,7 @@ class Jobset(object):
         self.resultset[job.GetSpec().shortname].append(job.result)
         self._running.remove(job)
       if dead: return
-      if (not self._travis):
+      if not self._travis and platform_string() != 'windows':
         rstr = '' if self._remaining is None else '%d queued, ' % self._remaining
         if self._remaining is not None and self._completed > 0:
           now = time.time()
@@ -450,7 +462,16 @@ def run(cmdlines,
         travis=False,
         infinite_runs=False,
         stop_on_failure=False,
-        add_env={}):
+        add_env={},
+        skip_jobs=False):
+  if skip_jobs:
+    results = {}
+    skipped_job_result = JobResult()
+    skipped_job_result.state = 'SKIPPED'
+    for job in cmdlines:
+      message('SKIPPED', job.shortname, do_newline=True)
+      results[job.shortname] = [skipped_job_result]
+    return results
   js = Jobset(check_cancelled,
               maxjobs if maxjobs is not None else _DEFAULT_MAX_JOBS,
               newline_on_success, travis, stop_on_failure, add_env)
