@@ -103,3 +103,6 @@ artifacts/
 
 # IDE specific folder for JetBrains IDEs
 .idea/
+
+# NPM debug
+npm-debug.log

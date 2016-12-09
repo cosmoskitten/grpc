@@ -36,9 +36,12 @@
 var fs = require('fs');
 var path = require('path');
 var grpc = require('..');
+
 var testProto = grpc.load({
   root: __dirname + '/../../..',
-  file: 'src/proto/grpc/testing/test.proto'}).grpc.testing;
+  file: 'src/proto/grpc/testing/test.proto'}).lookup('grpc.testing');
+var testService = testProto.lookup('TestService');
+
 var GoogleAuth = require('google-auth-library');
 
 var assert = require('assert');
@@ -515,45 +518,45 @@ function getOauth2Creds(scope, callback) {
  */
 var test_cases = {
   empty_unary: {run: emptyUnary,
-                Client: testProto.TestService},
+                Client: testService},
   large_unary: {run: largeUnary,
-                Client: testProto.TestService},
+                Client: testService},
   client_streaming: {run: clientStreaming,
-                     Client: testProto.TestService},
+                     Client: testService},
   server_streaming: {run: serverStreaming,
-                     Client: testProto.TestService},
+                     Client: testService},
   ping_pong: {run: pingPong,
-              Client: testProto.TestService},
+              Client: testService},
   empty_stream: {run: emptyStream,
-                 Client: testProto.TestService},
+                 Client: testService},
   cancel_after_begin: {run: cancelAfterBegin,
-                       Client: testProto.TestService},
+                       Client: testService},
   cancel_after_first_response: {run: cancelAfterFirstResponse,
-                                Client: testProto.TestService},
+                                Client: testService},
   timeout_on_sleeping_server: {run: timeoutOnSleepingServer,
-                               Client: testProto.TestService},
+                               Client: testService},
   custom_metadata: {run: customMetadata,
-                    Client: testProto.TestService},
+                    Client: testService},
   status_code_and_message: {run: statusCodeAndMessage,
-                            Client: testProto.TestService},
+                            Client: testService},
   unimplemented_service: {run: unimplementedService,
-                         Client: testProto.UnimplementedService},
+                         Client: testProto.lookup('UnimplementedService')},
   unimplemented_method: {run: unimplementedMethod,
-                         Client: testProto.TestService},
+                         Client: testService},
   compute_engine_creds: {run: computeEngineCreds,
-                         Client: testProto.TestService,
+                         Client: testService,
                          getCreds: getApplicationCreds},
   service_account_creds: {run: serviceAccountCreds,
-                          Client: testProto.TestService,
+                          Client: testService,
                           getCreds: getApplicationCreds},
   jwt_token_creds: {run: jwtTokenCreds,
-                    Client: testProto.TestService,
+                    Client: testService,
                     getCreds: getApplicationCreds},
   oauth2_auth_token: {run: oauth2Test,
-                      Client: testProto.TestService,
+                      Client: testService,
                       getCreds: getOauth2Creds},
   per_rpc_creds: {run: perRpcAuthTest,
-                  Client: testProto.TestService}
+                  Client: testService}
 };
 
 exports.test_cases = test_cases;

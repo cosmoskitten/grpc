@@ -40,7 +40,7 @@ var AsyncDelayQueue = require('./async_delay_queue');
 var grpc = require('..');
 var testProto = grpc.load({
   root: __dirname + '/../../..',
-  file: 'src/proto/grpc/testing/test.proto'}).grpc.testing;
+  file: 'src/proto/grpc/testing/test.proto'}).lookup('grpc.testing');
 
 var ECHO_INITIAL_KEY = 'x-grpc-test-echo-initial';
 var ECHO_TRAILING_KEY = 'x-grpc-test-echo-trailing-bin';
@@ -228,7 +228,7 @@ function getServer(port, tls) {
     server_creds = grpc.ServerCredentials.createInsecure();
   }
   var server = new grpc.Server(options);
-  server.addProtoService(testProto.TestService.service, {
+  server.addProtoService(testProto.lookup('TestService').service, {
     emptyCall: handleEmpty,
     unaryCall: handleUnary,
     streamingOutputCall: handleStreamingOutput,
