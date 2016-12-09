@@ -522,6 +522,7 @@ if not args.dry_run:
 
 perf_cmd = None
 if args.perf_args:
+  print('Running workers under perf profiler')
   # Expect /usr/bin/perf to be installed here, as is usual
   perf_cmd = ['/usr/bin/perf'] 
   perf_cmd.extend(re.split('\s+', args.perf_args))

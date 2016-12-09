@@ -42,6 +42,7 @@ tools/run_tests/run_performance_tests.py \
     --bq_result_table performance_test.performance_experiment \
     --remote_worker_host grpc-performance-server-8core grpc-performance-client-8core grpc-performance-client2-8core \
     --xml_report report_8core.xml \
+    --perf_args "$PERF_ARGS" \
     || EXIT_CODE=1
 
 # prevent pushing leftover build files to remote hosts in the next step.
@@ -55,6 +56,7 @@ tools/run_tests/run_performance_tests.py \
     --bq_result_table performance_test.performance_experiment_32core \
     --remote_worker_host grpc-performance-server-32core grpc-performance-client-32core grpc-performance-client2-32core \
     --xml_report report_32core.xml \
+    --perf_args "$PERF_ARGS" \
     || EXIT_CODE=1
 
 # prevent pushing leftover build files to remote hosts in the next step.
@@ -67,6 +69,7 @@ tools/run_tests/run_performance_tests.py \
     --bq_result_table performance_test.performance_experiment_windows \
     --remote_worker_host grpc-performance-windows1 grpc-performance-windows2 \
     --xml_report report_windows.xml \
+    --perf_args "$PERF_ARGS" \
     || EXIT_CODE=1
 
 exit $EXIT_CODE
