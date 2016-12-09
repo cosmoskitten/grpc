@@ -43,21 +43,20 @@ var _ = require('lodash');
 
 /**
  * Get a function that deserializes a specific type of protobuf.
- * @param {function()} cls The constructor of the message type to deserialize
- * @param {bool=} binaryAsBase64 Deserialize bytes fields as base64 strings
- *     instead of Buffers. Defaults to false
+ * @param {function()} cls The ProtoBuf.Type of the message type to deserialize
+ * @param {bool=} enumsAsStrings Deserialize enum fields as key strings
+ *     instead of numbers. Defaults to false
  * @param {bool=} longsAsStrings Deserialize long values as strings instead of
  *     objects. Defaults to true
  * @return {function(Buffer):cls} The deserialization function
  */
-exports.deserializeCls = function deserializeCls(cls, binaryAsBase64,
+exports.deserializeCls = function deserializeCls(cls, enumsAsStrings,
                                                  longsAsStrings) {
-  if (binaryAsBase64 === undefined || binaryAsBase64 === null) {
-    binaryAsBase64 = false;
-  }
+  enumsAsStrings = !!enumsAsStrings;
   if (longsAsStrings === undefined || longsAsStrings === null) {
     longsAsStrings = true;
   }
+
   /**
    * Deserialize a buffer to a message object
    * @param {Buffer} arg_buf The buffer to deserialize
@@ -66,7 +65,14 @@ exports.deserializeCls = function deserializeCls(cls, binaryAsBase64,
   return function deserialize(arg_buf) {
     // Convert to a native object with binary fields as Buffers (first argument)
     // and longs as strings (second argument)
-    return cls.decode(arg_buf).toRaw(binaryAsBase64, longsAsStrings);
+    var settings = {};
+    if (longsAsStrings) {
+      settings.long = String;
+    }
+    if (enumsAsStrings) {
+      settings.enum = String;
+    }
+    return cls.decode(arg_buf).asJSON(settings);
   };
 };
 
@@ -74,7 +80,7 @@ var deserializeCls = exports.deserializeCls;
 
 /**
  * Get a function that serializes objects to a buffer by protobuf class.
- * @param {function()} Cls The constructor of the message type to serialize
+ * @param {function()} Cls The ProtoBuf.Type of the message to serialize
  * @return {function(Cls):Buffer} The serialization function
  */
 exports.serializeCls = function serializeCls(Cls) {
@@ -84,15 +90,15 @@ exports.serializeCls = function serializeCls(Cls) {
    * @return {Buffer} The serialized object
    */
   return function serialize(arg) {
-    return new Buffer(new Cls(arg).encode().toBuffer());
+    return Cls.encode(arg).finish();
   };
 };
 
 var serializeCls = exports.serializeCls;
 
 /**
- * Get the fully qualified (dotted) name of a ProtoBuf.Reflect value.
- * @param {ProtoBuf.Reflect.Namespace} value The value to get the name of
+ * Get the fully qualified (dotted) name of a ProtoBuf.ReflectionObject value.
+ * @param {ProtoBuf.ReflectionObject} value The value to get the name of
  * @return {string} The fully qualified name of the value
  */
 exports.fullyQualifiedName = function fullyQualifiedName(value) {
@@ -136,30 +142,35 @@ exports.wrapIgnoreNull = function wrapIgnoreNull(func) {
 exports.getProtobufServiceAttrs = function getProtobufServiceAttrs(service,
                                                                    options) {
   var prefix = '/' + fullyQualifiedName(service) + '/';
-  var binaryAsBase64, longsAsStrings;
+  var enumsAsStrings, longsAsStrings;
   if (options) {
-    binaryAsBase64 = options.binaryAsBase64;
+    enumsAsStrings = options.enumsAsStrings;
     longsAsStrings = options.longsAsStrings;
   }
+
+  if (!service.resolved && service.resolveAll) {
+    service.resolveAll();
+  }
+
   /* This slightly awkward construction is used to make sure we only use
      lodash@3.10.1-compatible functions. A previous version used
      _.fromPairs, which would be cleaner, but was introduced in lodash
      version 4 */
-  return _.zipObject(_.map(service.children, function(method) {
+  return _.zipObject(_.map(service.methods, function(method) {
     return _.camelCase(method.name);
-  }), _.map(service.children, function(method) {
+  }), _.map(service.methods, function(method) {
     return {
       path: prefix + method.name,
-      requestStream: method.requestStream,
-      responseStream: method.responseStream,
+      requestStream: !!method.requestStream,
+      responseStream: !!method.responseStream,
       requestType: method.resolvedRequestType,
       responseType: method.resolvedResponseType,
-      requestSerialize: serializeCls(method.resolvedRequestType.build()),
-      requestDeserialize: deserializeCls(method.resolvedRequestType.build(),
-                                         binaryAsBase64, longsAsStrings),
-      responseSerialize: serializeCls(method.resolvedResponseType.build()),
-      responseDeserialize: deserializeCls(method.resolvedResponseType.build(),
-                                          binaryAsBase64, longsAsStrings)
+      requestSerialize: serializeCls(method.resolvedRequestType),
+      requestDeserialize: deserializeCls(method.resolvedRequestType,
+                                         enumsAsStrings, longsAsStrings),
+      responseSerialize: serializeCls(method.resolvedResponseType),
+      responseDeserialize: deserializeCls(method.resolvedResponseType,
+                                          enumsAsStrings, longsAsStrings),
     };
   }));
 };

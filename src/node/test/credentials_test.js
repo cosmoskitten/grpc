@@ -228,7 +228,7 @@ describe('client credentials', function() {
   before(function() {
     var proto = grpc.load(__dirname + '/test_service.proto');
     server = new grpc.Server();
-    server.addProtoService(proto.TestService.service, {
+    server.addProtoService(proto.lookup('TestService').service, {
       unary: function(call, cb) {
         call.sendMetadata(call.metadata);
         cb(null, {});
@@ -258,7 +258,7 @@ describe('client credentials', function() {
     port = server.bind('localhost:0', creds);
     server.start();
 
-    Client = proto.TestService;
+    Client = proto.lookup('TestService');
     client_ssl_creds = grpc.credentials.createSsl(ca_data);
     var host_override = 'foo.test.google.fr';
     client_options['grpc.ssl_target_name_override'] = host_override;
