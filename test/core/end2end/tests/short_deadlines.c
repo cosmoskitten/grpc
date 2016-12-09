@@ -97,11 +97,13 @@ static void end_test(grpc_end2end_test_fixture *f) {
   grpc_completion_queue_destroy(f->cq);
 }
 
-static void simple_request_body(grpc_end2end_test_config config,
-                                grpc_end2end_test_fixture f, size_t num_ops) {
+static void simple_request_body_with_deadline(grpc_end2end_test_config config,
+                                              grpc_end2end_test_fixture f,
+                                              size_t num_ops, int deadline_ms) {
   grpc_call *c;
-  gpr_timespec deadline = gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
-                                       gpr_time_from_millis(10, GPR_TIMESPAN));
+  const gpr_timespec deadline =
+      gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
+                   gpr_time_from_millis(deadline_ms, GPR_TIMESPAN));
 
   cq_verifier *cqv = cq_verifier_create(f.cq);
   grpc_op ops[6];
@@ -113,7 +115,8 @@ static void simple_request_body(grpc_end2end_test_config config,
   char *details = NULL;
   size_t details_capacity = 0;
 
-  gpr_log(GPR_DEBUG, "test with %" PRIuPTR " ops", num_ops);
+  gpr_log(GPR_DEBUG, "test with %" PRIuPTR " ops, %d ms deadline", num_ops,
+          deadline_ms);
 
   c = grpc_channel_create_call(
       f.client, NULL, GRPC_PROPAGATE_DEFAULTS, f.cq, "/foo",
@@ -155,7 +158,12 @@ static void simple_request_body(grpc_end2end_test_config config,
   CQ_EXPECT_COMPLETION(cqv, tag(1), 1);
   cq_verify(cqv);
 
-  GPR_ASSERT(status == GRPC_STATUS_DEADLINE_EXCEEDED);
+  if (status != GRPC_STATUS_DEADLINE_EXCEEDED) {
+    gpr_log(GPR_ERROR,
+            "Expected GRPC_STATUS_DEADLINE_EXCEEDED (code %d), got code %d",
+            GRPC_STATUS_DEADLINE_EXCEEDED, status);
+    abort();
+  }
 
   gpr_free(details);
   grpc_metadata_array_destroy(&initial_metadata_recv);
@@ -166,21 +174,27 @@ static void simple_request_body(grpc_end2end_test_config config,
   cq_verifier_destroy(cqv);
 }
 
-static void test_invoke_simple_request(grpc_end2end_test_config config,
-                                       size_t num_ops) {
+static void test_invoke_short_deadline_request(grpc_end2end_test_config config,
+                                               size_t num_ops,
+                                               int deadline_ms) {
   grpc_end2end_test_fixture f;
 
-  f = begin_test(config, "test_invoke_simple_request", NULL, NULL);
-  simple_request_body(config, f, num_ops);
+  f = begin_test(config, __func__, NULL, NULL);
+  simple_request_body_with_deadline(config, f, num_ops, deadline_ms);
   end_test(&f);
   config.tear_down_data(&f);
 }
 
-void negative_deadline(grpc_end2end_test_config config) {
+void short_deadlines(grpc_end2end_test_config config) {
   size_t i;
   for (i = 1; i <= 4; i++) {
-    test_invoke_simple_request(config, i);
+    test_invoke_short_deadline_request(config, i, 0);
+    test_invoke_short_deadline_request(config, i, 1);
+    test_invoke_short_deadline_request(config, i, 5);
+    test_invoke_short_deadline_request(config, i, 10);
+    test_invoke_short_deadline_request(config, i, 15);
+    test_invoke_short_deadline_request(config, i, 30);
   }
 }
 
-void negative_deadline_pre_init(void) {}
+void short_deadlines_pre_init(void) {}
