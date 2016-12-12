@@ -275,9 +275,11 @@ typedef struct poll_args {
   nfds_t nfds;
   poll_result* result;
   struct poll_args* next;
+  struct poll_args* prev;
 } poll_args;
 
 typedef struct poll_hash_table {
+  poll_args* free_pollers;
   poll_args** active_pollers;
   unsigned int size;
   unsigned int count;
@@ -1313,6 +1315,35 @@ static void workqueue_enqueue(grpc_exec_ctx *exec_ctx,
  * Condition Variable polling extensions
  */
 
+static void run_poll(void* args);
+static void cache_poller_locked(poll_args* args);
+
+static void cache_insert_locked(poll_args* args) {
+  uint32_t key = gpr_murmur_hash3(args->fds, args->nfds * sizeof(struct pollfd), 0xDEADBEEF);
+  key = key % poll_cache.size;
+  if (poll_cache.active_pollers[key]) {
+    poll_cache.active_pollers[key]->prev = args;
+  }
+  args->next = poll_cache.active_pollers[key];
+  args->prev = NULL;
+  poll_cache.active_pollers[key] = args;
+  poll_cache.count++;
+}
+
+
+void init_result(poll_args* pargs) {
+  pargs->result = gpr_malloc(sizeof(poll_result));
+  gpr_ref_init(&pargs->result->refcount, 1);
+  pargs->result->watchers = NULL;
+  pargs->result->watchcount = 0;
+  pargs->result->fds = gpr_malloc(sizeof(struct pollfd) * pargs->nfds);
+  memcpy(pargs->result->fds, pargs->fds, sizeof(struct pollfd) * pargs->nfds);
+  pargs->result->nfds = pargs->nfds;
+  pargs->result->retval = 0;
+  pargs->result->err = 0;
+  pargs->result->completed = 0;
+}
+
 // Check if we already have a poller running on the
 // given file descriptors/events
 static poll_args* get_poller_locked(struct pollfd *fds, nfds_t count) {
@@ -1321,47 +1352,60 @@ static poll_args* get_poller_locked(struct pollfd *fds, nfds_t count) {
   poll_args* curr = poll_cache.active_pollers[key];
   while(curr) {
     if (curr->nfds == count && memcmp(curr->fds, fds, count * sizeof(struct pollfd)) == 0) {
+      gpr_free(fds);
+      gpr_log(GPR_ERROR, "CACHED POLLER: %p", curr);
       return curr;
     }
     curr = curr->next;
   }
-  return NULL;
-}
 
-static int pollers_eq(poll_args* args1, poll_args* args2) {
-  if (args1 && args2 && args1->nfds == args2->nfds &&
-      memcmp(args1->fds, args2->fds, args1->nfds * sizeof(struct pollfd)) == 0) {
-    return 1;
+  if(poll_cache.free_pollers) {
+    poll_args* pargs = poll_cache.free_pollers;
+    poll_cache.free_pollers = pargs->next;
+    if (poll_cache.free_pollers) {
+      poll_cache.free_pollers->prev = NULL;
+    }
+    pargs->fds = fds;
+    pargs->nfds = count;
+    pargs->next = NULL;
+    pargs->prev = NULL;
+    init_result(pargs);
+    cache_insert_locked(pargs);
+    return pargs;
   }
-  return 0;
-}
 
+  poll_args* pargs = gpr_malloc(sizeof(struct poll_args));
+  gpr_cv_init(&pargs->trigger);
+  pargs->fds = fds;
+  pargs->nfds = count;
+  pargs->next = NULL;
+  pargs->prev = NULL;
+  init_result(pargs);
+  cache_poller_locked(pargs);
+  gpr_thd_id t_id;
+  gpr_thd_options opt = gpr_thd_options_default();
+  gpr_ref(&g_cvfds.pollcount);
+  gpr_thd_options_set_detached(&opt);
+  gpr_thd_new(&t_id, &run_poll, pargs, &opt);
+  return pargs;
+}
 
 static void cache_delete_locked(poll_args* args) {
-  uint32_t key = gpr_murmur_hash3(args->fds, args->nfds * sizeof(struct pollfd), 0xDEADBEEF);
-  key = key % poll_cache.size;
-  poll_args *curr, *prev;
-  curr = poll_cache.active_pollers[key];
-  prev = NULL;
-  while (curr && !pollers_eq(args, curr)) {
-    prev = curr;
-    curr = curr->next;
-  }
-  GPR_ASSERT(curr);
-  if (!prev) {
-    poll_cache.active_pollers[key] = curr->next;
+  gpr_log(GPR_ERROR, "DELETE: %p", args);
+  if (!args->prev) {
+    uint32_t key = gpr_murmur_hash3(args->fds, args->nfds * sizeof(struct pollfd), 0xDEADBEEF);
+    key = key % poll_cache.size;
+    poll_cache.active_pollers[key] = args->next;
   } else {
-    prev->next = curr->next;
+    args->prev->next = args->next;
   }
   poll_cache.count--;
-}
-
-static void cache_insert_locked(poll_args* args) {
-  uint32_t key = gpr_murmur_hash3(args->fds, args->nfds * sizeof(struct pollfd), 0xDEADBEEF);
-  key = key % poll_cache.size;
-  args->next = poll_cache.active_pollers[key];
-  poll_cache.active_pollers[key] = args;
-  poll_cache.count++;
+  if (poll_cache.free_pollers) {
+    poll_cache.free_pollers->prev = args;
+  }
+  args->prev = NULL;
+  args->next = poll_cache.free_pollers;
+  poll_cache.free_pollers = args;
 }
 
 
@@ -1375,12 +1419,12 @@ static void cache_poller_locked(poll_args* args) {
       poll_cache.active_pollers[i] = NULL;
     }
     for (unsigned int i = 0; i < poll_cache.size/2; i++) {
+      poll_args* curr = old_active_pollers[i];
       poll_args* next = NULL;
-      while(old_active_pollers[i]) {
-        next = old_active_pollers[i]->next;
-        old_active_pollers[i]->next = NULL;
-        cache_insert_locked(old_active_pollers[i]);
-        old_active_pollers[i] = next;
+      while(curr) {
+        next = curr->next;
+        cache_insert_locked(curr);
+        curr = next;
       }
     }
     gpr_free(old_active_pollers);
@@ -1389,25 +1433,28 @@ static void cache_poller_locked(poll_args* args) {
   cache_insert_locked(args);
 }
 
+static void cache_destroy_locked(poll_args* args) {
+  if (args->next) {
+    args->next->prev = args->prev;
+  }
+
+  if (args->prev)  {
+    args->prev->next = args->next;
+  } else {
+    poll_cache.free_pollers = args->next;
+  }
+
+  gpr_free(args->fds);
+  gpr_free(args);
+}
+
+
 static void decref_poll_result(poll_result *res) {
   if (gpr_unref(&res->refcount)) {
     GPR_ASSERT(!res->watchers);
     gpr_free(res->fds);
     gpr_free(res);
   }
-}
-
-void init_result(poll_args* pargs) {
-  pargs->result = gpr_malloc(sizeof(poll_result));
-  gpr_ref_init(&pargs->result->refcount, 1);
-  pargs->result->watchers = NULL;
-  pargs->result->watchcount = 0;
-  pargs->result->fds = gpr_malloc(sizeof(struct pollfd) * pargs->nfds);
-  memcpy(pargs->result->fds, pargs->fds, sizeof(struct pollfd) * pargs->nfds);
-  pargs->result->nfds = pargs->nfds;
-  pargs->result->retval = 0;
-  pargs->result->err = 0;
-  pargs->result->completed = 0;
 }
 
 void remove_cvn(cv_node** head, cv_node* target) {
@@ -1426,6 +1473,7 @@ void remove_cvn(cv_node** head, cv_node* target) {
 // Poll in a background thread
 static void run_poll(void* args) {
   poll_args *pargs = (poll_args*)args;
+  gpr_log(GPR_ERROR, "Spawned thread!");
   while(1) {
     poll_result* result = pargs->result;
     int retval = g_cvfds.poll(result->fds, result->nfds, CV_POLL_PERIOD_MS);
@@ -1439,20 +1487,17 @@ static void run_poll(void* args) {
         gpr_cv_signal(watcher->cv);
         watcher = watcher->next;
       }
-
-      // Create a new result object for any new poll calls
-      decref_poll_result(result);
-      init_result(pargs);
-      result = pargs->result;
     }
 
-    if(result->watchcount == 0) {
-      // Leave this polling thread alive for a grace period
+    if(result->watchcount == 0 || result->completed) {
+      decref_poll_result(result);
+      cache_delete_locked(pargs);
+      // Leave this polling thread alive for a grace period to do another poll() op
       gpr_timespec deadline = gpr_now(GPR_CLOCK_REALTIME);
       deadline = gpr_time_add(deadline,
                             gpr_time_from_millis(POLLCV_THREAD_GRACE_MS, GPR_TIMESPAN));
-      gpr_cv_wait(&pargs->trigger, &g_cvfds.mu, deadline);
-      if (result->watchcount == 0) {
+      if (gpr_cv_wait(&pargs->trigger, &g_cvfds.mu, deadline)) {
+        cache_destroy_locked(pargs);
         break;
       }
     }
@@ -1460,15 +1505,11 @@ static void run_poll(void* args) {
   }
 
   // We still have the lock here
-  decref_poll_result(pargs->result);
-  cache_delete_locked(pargs);
-  gpr_free(pargs->fds);
-  gpr_free(pargs);
-
   if (gpr_unref(&g_cvfds.pollcount)) {
     gpr_cv_signal(&g_cvfds.shutdown_cv);
   }
   gpr_mu_unlock(&g_cvfds.mu);
+  gpr_log(GPR_ERROR, "Done with thread!");
 }
 
 // This function overrides poll() to handle condition variable wakeup fds
@@ -1478,8 +1519,6 @@ static int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
   cv_node *pollcv;
   int skip_poll = 0;
   nfds_t nsockfds = 0;
-  gpr_thd_id t_id;
-  gpr_thd_options opt;
   poll_result *result = NULL;
   gpr_mu_lock(&g_cvfds.mu);
   pollcv = gpr_malloc(sizeof(cv_node));
@@ -1530,21 +1569,6 @@ static int cvfd_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
       }
     }
     poll_args* pargs = get_poller_locked(pollfds, nsockfds);
-    if (pargs) {
-      gpr_free(pollfds);
-    } else {
-      pargs = gpr_malloc(sizeof(struct poll_args));
-      gpr_cv_init(&pargs->trigger);
-      pargs->fds = pollfds;
-      pargs->nfds = nsockfds;
-      pargs->next = NULL;
-      init_result(pargs);
-      cache_poller_locked(pargs);
-      opt = gpr_thd_options_default();
-      gpr_ref(&g_cvfds.pollcount);
-      gpr_thd_options_set_detached(&opt);
-      gpr_thd_new(&t_id, &run_poll, pargs, &opt);
-    }
     result = pargs->result;
     pollcv->next = result->watchers;
     pollcv->prev = NULL;
@@ -1611,6 +1635,7 @@ static void global_cv_fd_table_init() {
   //Initialize the cache
   poll_cache.size = 32;
   poll_cache.count = 0;
+  poll_cache.free_pollers = NULL;
   poll_cache.active_pollers = gpr_malloc(sizeof(void*) * 32);
   for (unsigned int i = 0; i < poll_cache.size; i++) {
     poll_cache.active_pollers[i] = NULL;
