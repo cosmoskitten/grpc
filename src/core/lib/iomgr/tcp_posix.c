@@ -208,7 +208,7 @@ static void tcp_do_read(grpc_exec_ctx *exec_ctx, grpc_tcp *tcp) {
   msg.msg_name = NULL;
   msg.msg_namelen = 0;
   msg.msg_iov = iov;
-  msg.msg_iovlen = tcp->iov_size;
+  msg.msg_iovlen = (int) tcp->iov_size;
   msg.msg_control = NULL;
   msg.msg_controllen = 0;
   msg.msg_flags = 0;
@@ -348,7 +348,7 @@ static bool tcp_flush(grpc_tcp *tcp, grpc_error **error) {
     msg.msg_name = NULL;
     msg.msg_namelen = 0;
     msg.msg_iov = iov;
-    msg.msg_iovlen = iov_size;
+    msg.msg_iovlen = (int) iov_size;
     msg.msg_control = NULL;
     msg.msg_controllen = 0;
     msg.msg_flags = 0;
