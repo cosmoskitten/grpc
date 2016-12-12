@@ -101,7 +101,7 @@ def create_qpsworker_job(language, shortname=None,
 
 
 def create_scenario_jobspec(scenario_json, workers, remote_host=None,
-                            bq_result_table=None, server_cpu_load='0'):
+                            bq_result_table=None, server_cpu_load=0):
   """Runs one scenario using QPS driver."""
   # setting QPS_WORKERS env variable here makes sure it works with SSH too.
   cmd = 'QPS_WORKERS="%s" ' % ','.join(workers)
@@ -110,8 +110,8 @@ def create_scenario_jobspec(scenario_json, workers, remote_host=None,
   cmd += 'tools/run_tests/performance/run_qps_driver.sh '
   cmd += '--scenarios_json=%s ' % pipes.quote(json.dumps({'scenarios': [scenario_json]}))
   cmd += '--scenario_result_file=scenario_result.json '
-  if server_cpu_load != '0':
-      cmd += '--search_param=offered_load --initial_search_value=1000 --targeted_cpu_load=%s --stride=500 --error_tolerance=0.01' % server_cpu_load
+  if server_cpu_load != 0:
+      cmd += '--search_param=offered_load --initial_search_value=1000 --targeted_cpu_load=%d --stride=500 --error_tolerance=0.01' % server_cpu_load
   if remote_host:
     user_at_host = '%s@%s' % (_REMOTE_HOST_USERNAME, remote_host)
     cmd = 'ssh %s "cd ~/performance_workspace/grpc/ && "%s' % (user_at_host, pipes.quote(cmd))
@@ -407,8 +407,7 @@ argp.add_argument('--netperf',
                   const=True,
                   help='Run netperf benchmark as one of the scenarios.')
 argp.add_argument('--server_cpu_load',
-                  choices=['0','10','20','30','40','50','60','70','80','90'],
-                  default='0',
+                  default=0, type=int,
                   help='Select a targeted server cpu load to run. 0 means ignore this flag')
 argp.add_argument('-x', '--xml_report', default='report.xml', type=str,
                   help='Name of XML report file to generate.')
