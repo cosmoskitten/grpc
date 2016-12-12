@@ -287,7 +287,7 @@ Scenario = collections.namedtuple('Scenario', 'jobspec workers name')
 
 def create_scenarios(languages, workers_by_lang, remote_host=None, regex='.*',
                      category='all', bq_result_table=None,
-                     netperf=False, netperf_hosts=[], server_cpu_load='0'):
+                     netperf=False, netperf_hosts=[], server_cpu_load=0):
   """Create jobspecs for scenarios to run."""
   all_workers = [worker
                  for workers in workers_by_lang.values()
