@@ -123,10 +123,11 @@
 #include "src/core/lib/surface/channel.h"
 #include "src/core/lib/transport/static_metadata.h"
 
-#define BACKOFF_MULTIPLIER 1.6
-#define BACKOFF_JITTER 0.2
-#define BACKOFF_MIN_SECONDS 10
-#define BACKOFF_MAX_SECONDS 60
+#define GRPC_GRPCLB_MIN_CONNECT_TIMEOUT_SECONDS 20
+#define GRPC_GRPCLB_INITIAL_CONNECT_BACKOFF_SECONDS 1
+#define GRPC_GRPCLB_RECONNECT_BACKOFF_MULTIPLIER 1.6
+#define GRPC_GRPCLB_RECONNECT_MAX_BACKOFF_SECONDS 120
+#define GRPC_GRPCLB_RECONNECT_JITTER 0.2
 
 int grpc_lb_glb_trace = 0;
 
@@ -182,10 +183,10 @@ static void wrapped_rr_closure(grpc_exec_ctx *exec_ctx, void *arg,
                       NULL);
 
   if (wc_arg->rr_policy != NULL) {
-    /* if target is NULL, no pick has been made by the RR policy (eg, all
+    /* if *target is NULL, no pick has been made by the RR policy (eg, all
      * addresses failed to connect). There won't be any user_data/token
      * available */
-    if (wc_arg->target != NULL) {
+    if (*wc_arg->target != NULL) {
       if (wc_arg->lb_token != NULL) {
         initial_metadata_add_lb_token(wc_arg->initial_metadata,
                                       wc_arg->lb_token_mdelem_storage,
@@ -1107,9 +1108,12 @@ static void lb_call_init_locked(glb_lb_policy *glb_policy) {
   grpc_closure_init(&glb_policy->lb_on_response_received,
                     lb_on_response_received, glb_policy);
 
-  gpr_backoff_init(&glb_policy->lb_call_backoff_state, BACKOFF_MULTIPLIER,
-                   BACKOFF_JITTER, BACKOFF_MIN_SECONDS * 1000,
-                   BACKOFF_MAX_SECONDS * 1000);
+  gpr_backoff_init(&glb_policy->lb_call_backoff_state,
+                   GRPC_GRPCLB_INITIAL_CONNECT_BACKOFF_SECONDS,
+                   GRPC_GRPCLB_RECONNECT_BACKOFF_MULTIPLIER,
+                   GRPC_GRPCLB_RECONNECT_JITTER,
+                   GRPC_GRPCLB_MIN_CONNECT_TIMEOUT_SECONDS * 1000,
+                   GRPC_GRPCLB_RECONNECT_MAX_BACKOFF_SECONDS * 1000);
 }
 
 static void lb_call_destroy_locked(glb_lb_policy *glb_policy) {
@@ -1238,12 +1242,15 @@ static void lb_on_response_received(grpc_exec_ctx *exec_ctx, void *arg,
             gpr_log(GPR_INFO,
                     "Incoming server list identical to current, ignoring.");
           }
+          grpc_grpclb_destroy_serverlist(serverlist);
         } else { /* new serverlist */
           if (glb_policy->serverlist != NULL) {
             /* dispose of the old serverlist */
             grpc_grpclb_destroy_serverlist(glb_policy->serverlist);
           }
-          /* and update the copy in the glb_lb_policy instance */
+          /* and update the copy in the glb_lb_policy instance. This serverlist
+           * instance will be destroyed either upon the next update or in
+           * glb_destroy() */
           glb_policy->serverlist = serverlist;
 
           rr_handover_locked(exec_ctx, glb_policy);
