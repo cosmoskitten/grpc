@@ -31,11 +31,32 @@
 
 import abc
 import enum
+import sys
 
 import six
 
 from grpc._cython import cygrpc as _cygrpc
 
+
+############################### Extension Shims ################################
+
+try:
+  import grpc_tools
+  sys.modules.update({'grpc.tools': grpc_tools})
+except ImportError:
+  pass
+
+try:
+  import grpc_health
+  sys.modules.update({'grpc.health': grpc_health})
+except ImportError:
+  pass
+
+try:
+  import grpc_reflection
+  sys.modules.update({'grpc.reflection': grpc_reflection})
+except ImportError:
+  pass
 
 ############################## Future Interface  ###############################
 
