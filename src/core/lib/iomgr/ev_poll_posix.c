@@ -997,9 +997,9 @@ static grpc_error *pollset_work(grpc_exec_ctx *exec_ctx, grpc_pollset *pollset,
 
       /* TODO(vpai): Consider first doing a 0 timeout poll here to avoid
          even going into the blocking annotation if possible */
-      GRPC_SCHEDULING_START_BLOCKING_REGION;
+      //GRPC_SCHEDULING_START_BLOCKING_REGION;
       r = grpc_poll_function(pfds, pfd_count, timeout);
-      GRPC_SCHEDULING_END_BLOCKING_REGION;
+      //GRPC_SCHEDULING_END_BLOCKING_REGION;
 
       if (r < 0) {
         if (errno != EINTR) {
@@ -1461,6 +1461,7 @@ static void cache_delete_locked(poll_args* args) {
   }
   args->prev = NULL;
   args->next = poll_cache.free_pollers;
+  gpr_free(args->fds);
   poll_cache.free_pollers = args;
   //assert_not_in_cache(args);
   //validate_poll_cache();
@@ -1506,7 +1507,6 @@ static void cache_destroy_locked(poll_args* args) {
     poll_cache.free_pollers = args->next;
   }
 
-  gpr_free(args->fds);
   gpr_free(args);
   //validate_poll_cache();
 }
@@ -1532,12 +1532,18 @@ void remove_cvn(cv_node** head, cv_node* target) {
   }
 }
 
+gpr_timespec thread_grace;
 
 // Poll in a background thread
 static void run_poll(void* args) {
   poll_args *pargs = (poll_args*)args;
   while(1) {
     poll_result* result = pargs->result;
+    gpr_mu_lock(&g_cvfds.mu);
+    if (result->watchcount == 0) {
+      gpr_log(GPR_ERROR, "SKIP");
+    }
+    gpr_mu_unlock(&g_cvfds.mu);
     int retval = g_cvfds.poll(result->fds, result->nfds, CV_POLL_PERIOD_MS);
     gpr_mu_lock(&g_cvfds.mu);
     if (retval != 0) {
@@ -1555,8 +1561,7 @@ static void run_poll(void* args) {
       decref_poll_result(result);
       // Leave this polling thread alive for a grace period to do another poll() op
       gpr_timespec deadline = gpr_now(GPR_CLOCK_REALTIME);
-      deadline = gpr_time_add(deadline,
-                            gpr_time_from_millis(POLLCV_THREAD_GRACE_MS, GPR_TIMESPAN));
+      deadline = gpr_time_add(deadline, thread_grace);
       pargs->trigger_set = 0;
       gpr_cv_wait(&pargs->trigger, &g_cvfds.mu, deadline);
       if (!pargs->trigger_set) {
@@ -1685,6 +1690,7 @@ static void global_cv_fd_table_init() {
   g_cvfds.size = CV_DEFAULT_TABLE_SIZE;
   g_cvfds.cvfds = gpr_malloc(sizeof(fd_node) * CV_DEFAULT_TABLE_SIZE);
   g_cvfds.free_fds = NULL;
+  thread_grace = gpr_time_from_millis(POLLCV_THREAD_GRACE_MS, GPR_TIMESPAN);
   for (int i = 0; i < CV_DEFAULT_TABLE_SIZE; i++) {
     g_cvfds.cvfds[i].is_set = 0;
     g_cvfds.cvfds[i].cvs = NULL;
