@@ -1539,11 +1539,6 @@ static void run_poll(void* args) {
   poll_args *pargs = (poll_args*)args;
   while(1) {
     poll_result* result = pargs->result;
-    gpr_mu_lock(&g_cvfds.mu);
-    if (result->watchcount == 0) {
-      gpr_log(GPR_ERROR, "SKIP");
-    }
-    gpr_mu_unlock(&g_cvfds.mu);
     int retval = g_cvfds.poll(result->fds, result->nfds, CV_POLL_PERIOD_MS);
     gpr_mu_lock(&g_cvfds.mu);
     if (retval != 0) {
