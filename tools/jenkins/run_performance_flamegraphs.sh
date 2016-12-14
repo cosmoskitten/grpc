@@ -34,22 +34,6 @@ set -ex
 # Enter the gRPC repo root
 cd $(dirname $0)/../..
 
-# run 8core client vs 8core server c++ benchmarks
-tools/run_tests/run_performance_tests.py \
-    -l c++ \
-    --category all \
-    --remote_worker_host grpc-performance-server-8core grpc-performance-client-8core grpc-performance-client2-8core \
-    --perf_args "record -F 97 --call-graph dwarf"
-    || EXIT_CODE=1
-
-# run 8core client vs 8core server go benchmarks
-tools/run_tests/run_performance_tests.py \
-    -l go \
-    --category all \
-    --remote_worker_host grpc-performance-server-8core grpc-performance-client-8core grpc-performance-client2-8core \
-    --perf_args "record -F 97 -g"
-    || EXIT_CODE=1
-
 # scalability with 32cores c++ benchmarks
 tools/run_tests/run_performance_tests.py \
     -l c++ \
