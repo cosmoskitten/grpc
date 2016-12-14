@@ -28,10 +28,43 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# This script is invoked by Jenkins and runs performance smoke test.
+# This script is invoked by Jenkins and runs full performance test suite.
 set -ex
 
 # Enter the gRPC repo root
 cd $(dirname $0)/../..
 
-tools/run_tests/run_performance_tests.py -l c++ node ruby csharp python --netperf --category smoketest
+# run 8core client vs 8core server c++ benchmarks
+tools/run_tests/run_performance_tests.py \
+    -l c++ \
+    --category all \
+    --remote_worker_host grpc-performance-server-8core grpc-performance-client-8core grpc-performance-client2-8core \
+    --perf_args "record -F 97 --call-graph dwarf"
+    || EXIT_CODE=1
+
+# run 8core client vs 8core server go benchmarks
+tools/run_tests/run_performance_tests.py \
+    -l go \
+    --category all \
+    --remote_worker_host grpc-performance-server-8core grpc-performance-client-8core grpc-performance-client2-8core \
+    --perf_args "record -F 97 -g"
+    || EXIT_CODE=1
+
+# scalability with 32cores c++ benchmarks
+tools/run_tests/run_performance_tests.py \
+    -l c++ \
+    --category scalable \
+    --remote_worker_host grpc-performance-server-32core grpc-performance-client-32core grpc-performance-client2-32core \
+    --perf_args "record -F 97 --call-graph dwarf"
+    || EXIT_CODE=1
+
+# scalability with 32cores go benchmarks
+tools/run_tests/run_performance_tests.py \
+    -l go \
+    --category scalable \
+    --remote_worker_host grpc-performance-server-32core grpc-performance-client-32core grpc-performance-client2-32core \
+    --perf_args "record -F 97 -g"
+    || EXIT_CODE=1
+
+exit $EXIT_CODE
+
