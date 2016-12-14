@@ -60,9 +60,8 @@ ServerBuilder::ServerBuilder()
       resource_quota_(nullptr),
       generic_service_(nullptr) {
   gpr_once_init(&once_init_plugin_list, do_plugin_list_init);
-  for (auto it = g_plugin_factory_list->begin();
-       it != g_plugin_factory_list->end(); it++) {
-    auto& factory = *it;
+  for (auto value : g_plugin_factory_list) {
+    auto& factory = value;
     plugins_.emplace_back(factory());
   }
 
@@ -180,13 +179,13 @@ ServerBuilder& ServerBuilder::AddListeningPort(
 
 std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   ChannelArguments args;
-  for (auto option = options_.begin(); option != options_.end(); ++option) {
-    (*option)->UpdateArguments(&args);
-    (*option)->UpdatePlugins(&plugins_);
+  for (auto option : options_) {
+    option->UpdateArguments(&args);
+    option->UpdatePlugins(&plugins_);
   }
 
-  for (auto plugin = plugins_.begin(); plugin != plugins_.end(); plugin++) {
-    (*plugin)->UpdateChannelArguments(&args);
+  for (auto plugin : plugins_) {
+    plugin->UpdateChannelArguments(&args);
   }
 
   if (max_receive_message_size_ >= 0) {
@@ -215,16 +214,16 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
 
   // == Determine if the server has any syncrhonous methods ==
   bool has_sync_methods = false;
-  for (auto it = services_.begin(); it != services_.end(); ++it) {
-    if ((*it)->service->has_synchronous_methods()) {
+  for (auto value : services_) {
+    if (value->service->has_synchronous_methods()) {
       has_sync_methods = true;
       break;
     }
   }
 
   if (!has_sync_methods) {
-    for (auto plugin = plugins_.begin(); plugin != plugins_.end(); plugin++) {
-      if ((*plugin)->has_sync_methods()) {
+    for (auto plugin : plugins_) {
+      if (plugin->has_sync_methods()) {
         has_sync_methods = true;
         break;
       }
@@ -272,8 +271,8 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   // All sync cqs (if any) are frequently polled by ThreadManager
   int num_frequently_polled_cqs = sync_server_cqs->size();
 
-  for (auto it = sync_server_cqs->begin(); it != sync_server_cqs->end(); ++it) {
-    grpc_server_register_completion_queue(server->server_, (*it)->cq(),
+  for (auto value : sync_server_cqs) {
+    grpc_server_register_completion_queue(server->server_, value->cq(),
                                           nullptr);
   }
 
@@ -282,14 +281,14 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   // calling Next() or AsyncNext()) and hence are not safe to be used for
   // listening to incoming channels. Such completion queues must be registered
   // as non-listening queues
-  for (auto it = cqs_.begin(); it != cqs_.end(); ++it) {
-    if ((*it)->IsFrequentlyPolled()) {
-      grpc_server_register_completion_queue(server->server_, (*it)->cq(),
+  for (auto value : cqs_) {
+    if (value->IsFrequentlyPolled()) {
+      grpc_server_register_completion_queue(server->server_, value->cq(),
                                             nullptr);
       num_frequently_polled_cqs++;
     } else {
       grpc_server_register_non_listening_completion_queue(server->server_,
-                                                          (*it)->cq(), nullptr);
+                                                          value->cq(), nullptr);
     }
   }
 
@@ -299,22 +298,21 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
     return nullptr;
   }
 
-  for (auto service = services_.begin(); service != services_.end();
-       service++) {
-    if (!server->RegisterService((*service)->host.get(), (*service)->service)) {
+  for (auto service : services_) {
+    if (!server->RegisterService(service->host.get(), service->service)) {
       return nullptr;
     }
   }
 
-  for (auto plugin = plugins_.begin(); plugin != plugins_.end(); plugin++) {
-    (*plugin)->InitServer(initializer);
+  for (auto plugin : plugins_) {
+    plugin->InitServer(initializer);
   }
 
   if (generic_service_) {
     server->RegisterAsyncGenericService(generic_service_);
   } else {
-    for (auto it = services_.begin(); it != services_.end(); ++it) {
-      if ((*it)->service->has_generic_methods()) {
+    for (auto value : services_) {
+      if (value->service->has_generic_methods()) {
         gpr_log(GPR_ERROR,
                 "Some methods were marked generic but there is no "
                 "generic service registered.");
@@ -336,8 +334,8 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
     return nullptr;
   }
 
-  for (auto plugin = plugins_.begin(); plugin != plugins_.end(); plugin++) {
-    (*plugin)->Finish(initializer);
+  for (auto plugin : plugins_) {
+    plugin->Finish(initializer);
   }
 
   return server;
