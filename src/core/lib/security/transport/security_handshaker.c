@@ -42,6 +42,7 @@
 
 #include "src/core/lib/channel/channel_args.h"
 #include "src/core/lib/channel/handshaker.h"
+#include "src/core/lib/channel/handshaker_registry.h"
 #include "src/core/lib/security/context/security_context.h"
 #include "src/core/lib/security/transport/secure_endpoint.h"
 #include "src/core/lib/security/transport/tsi_error.h"
@@ -434,6 +435,41 @@ static grpc_handshaker *fail_handshaker_create() {
 }
 
 //
+// handshaker factories
+//
+
+static void client_handshaker_factory_add_handshakers(
+    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *handshaker_factory,
+    const grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
+  grpc_channel_security_connector *security_connector =
+      (grpc_channel_security_connector *)grpc_find_security_connector_in_args(
+          args);
+  grpc_channel_security_connector_add_handshakers(exec_ctx, security_connector,
+                                                  handshake_mgr);
+}
+
+static void server_handshaker_factory_add_handshakers(
+    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *hf,
+    const grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
+  grpc_server_security_connector *security_connector =
+      (grpc_server_security_connector *)grpc_find_security_connector_in_args(
+          args);
+  grpc_server_security_connector_add_handshakers(
+      exec_ctx, security_connector, handshake_mgr);
+}
+
+static void handshaker_factory_destroy(
+    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *handshaker_factory) {
+  gpr_free(handshaker_factory);
+}
+
+static const grpc_handshaker_factory_vtable client_handshaker_factory_vtable = {
+    client_handshaker_factory_add_handshakers, handshaker_factory_destroy};
+
+static const grpc_handshaker_factory_vtable server_handshaker_factory_vtable = {
+    server_handshaker_factory_add_handshakers, handshaker_factory_destroy};
+
+//
 // exported functions
 //
 
@@ -447,4 +483,17 @@ grpc_handshaker *grpc_security_handshaker_create(
   } else {
     return security_handshaker_create(exec_ctx, handshaker, connector);
   }
+}
+
+void grpc_security_register_handshaker_factories() {
+  grpc_handshaker_factory *client_factory = gpr_malloc(sizeof(*client_factory));
+  memset(client_factory, 0, sizeof(*client_factory));
+  client_factory->vtable = &client_handshaker_factory_vtable;
+  grpc_handshaker_factory_register(false /* at_start */, HANDSHAKER_CLIENT,
+                                   client_factory);
+  grpc_handshaker_factory *server_factory = gpr_malloc(sizeof(*server_factory));
+  memset(server_factory, 0, sizeof(*server_factory));
+  server_factory->vtable = &server_handshaker_factory_vtable;
+  grpc_handshaker_factory_register(false /* at_start */, HANDSHAKER_SERVER,
+                                   server_factory);
 }

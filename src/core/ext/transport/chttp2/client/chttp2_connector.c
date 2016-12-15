@@ -46,6 +46,7 @@
 #include "src/core/ext/transport/chttp2/transport/chttp2_transport.h"
 #include "src/core/lib/channel/channel_args.h"
 #include "src/core/lib/channel/handshaker.h"
+#include "src/core/lib/channel/handshaker_registry.h"
 #include "src/core/lib/iomgr/tcp_client.h"
 #include "src/core/lib/security/transport/security_connector.h"
 
@@ -153,6 +154,7 @@ static void on_handshake_done(grpc_exec_ctx *exec_ctx, void *arg,
 static void start_handshake_locked(grpc_exec_ctx *exec_ctx,
                                    chttp2_connector *c) {
   c->handshake_mgr = grpc_handshake_manager_create();
+#if 0
   char *proxy_name = grpc_get_http_proxy_server();
   if (proxy_name != NULL) {
     grpc_handshake_manager_add(
@@ -162,6 +164,10 @@ static void start_handshake_locked(grpc_exec_ctx *exec_ctx,
   }
   grpc_handshaker_factory_add_handshakers(
       exec_ctx, c->handshaker_factory, c->args.channel_args, c->handshake_mgr);
+#else
+  grpc_handshakers_add(exec_ctx, HANDSHAKER_CLIENT, c->args.channel_args,
+                       c->handshake_mgr);
+#endif
   grpc_handshake_manager_do_handshake(
       exec_ctx, c->handshake_mgr, c->endpoint, c->args.channel_args,
       c->args.deadline, NULL /* acceptor */, on_handshake_done, c);

@@ -44,4 +44,7 @@ grpc_handshaker* grpc_http_connect_handshaker_create(const char* proxy_server,
 /// Caller takes ownership of result.
 char* grpc_get_http_proxy_server();
 
+/// Registers handshaker factory.
+void grpc_http_connect_register_handshaker_factory();
+
 #endif /* GRPC_CORE_EXT_CLIENT_CHANNEL_HTTP_CONNECT_HANDSHAKER_H */

@@ -44,6 +44,7 @@
 #include "src/core/lib/channel/compress_filter.h"
 #include "src/core/lib/channel/connected_channel.h"
 #include "src/core/lib/channel/deadline_filter.h"
+#include "src/core/lib/channel/handshaker_registry.h"
 #include "src/core/lib/channel/http_client_filter.h"
 #include "src/core/lib/channel/http_server_filter.h"
 #include "src/core/lib/channel/message_size_filter.h"
@@ -201,6 +202,8 @@ void grpc_init(void) {
     grpc_executor_init();
     gpr_timers_global_init();
     grpc_cq_global_init();
+    grpc_handshaker_factory_registry_init();
+    grpc_security_init();
     for (i = 0; i < g_number_of_plugins; i++) {
       if (g_all_of_the_plugins[i].init != NULL) {
         g_all_of_the_plugins[i].init();
@@ -221,6 +224,7 @@ void grpc_init(void) {
 void grpc_shutdown(void) {
   int i;
   GRPC_API_TRACE("grpc_shutdown(void)", 0, ());
+  grpc_exec_ctx exec_ctx = GRPC_EXEC_CTX_INIT;
   gpr_mu_lock(&g_init_mu);
   if (--g_initializations == 0) {
     grpc_executor_shutdown();
@@ -234,8 +238,10 @@ void grpc_shutdown(void) {
       }
     }
     grpc_mdctx_global_shutdown();
+    grpc_handshaker_factory_registry_shutdown(&exec_ctx);
   }
   gpr_mu_unlock(&g_init_mu);
+  grpc_exec_ctx_finish(&exec_ctx);
 }
 
 int grpc_is_initialized(void) {

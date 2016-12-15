@@ -46,6 +46,7 @@
 #include "src/core/ext/transport/chttp2/transport/chttp2_transport.h"
 #include "src/core/lib/channel/channel_args.h"
 #include "src/core/lib/channel/handshaker.h"
+#include "src/core/lib/channel/handshaker_registry.h"
 #include "src/core/lib/channel/http_server_filter.h"
 #include "src/core/lib/iomgr/endpoint.h"
 #include "src/core/lib/iomgr/resolve_address.h"
@@ -179,9 +180,13 @@ static void on_accept(grpc_exec_ctx *exec_ctx, void *arg, grpc_endpoint *tcp,
   connection_state->accepting_pollset = accepting_pollset;
   connection_state->acceptor = acceptor;
   connection_state->handshake_mgr = handshake_mgr;
+  grpc_handshakers_add(exec_ctx, HANDSHAKER_SERVER, state->args,
+                       connection_state->handshake_mgr);
+#if 0
   grpc_handshaker_factory_add_handshakers(exec_ctx, state->handshaker_factory,
                                           state->args,
                                           connection_state->handshake_mgr);
+#endif
   // TODO(roth): We should really get this timeout value from channel
   // args instead of hard-coding it.
   const gpr_timespec deadline = gpr_time_add(
