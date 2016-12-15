@@ -136,6 +136,8 @@ static void end_all_the_calls(grpc_exec_ctx *exec_ctx, grpc_chttp2_transport *t,
 /** keepalive-relevant functions (TODO: better description/organization) */
 static void keepalive_ping_end(grpc_exec_ctx *exec_ctx, void *arg,
                                grpc_error *error);
+static void keepalive_watchdog(grpc_exec_ctx *exec_ctx, void *arg,
+                               grpc_error *error);
 static void send_ping_locked(grpc_exec_ctx *exec_ctx, grpc_chttp2_transport *t,
                              grpc_closure *on_recv);
 
@@ -255,23 +257,49 @@ static void keepalive_ping_start(grpc_exec_ctx *exec_ctx, void *arg,
         exec_ctx, t,
         wrap_closure_in_combiner(
             grpc_closure_create(keepalive_ping_end, t), t->combiner));
+
+    combiner_closure_arg *watchdog_arg =
+        make_combiner_closure_arg(keepalive_watchdog, t, t->combiner);
+    GRPC_CHTTP2_REF_TRANSPORT(t, "keepalive watchdog");
+    grpc_timer_init(exec_ctx, &t->keepalive_watchdog_timer,
+                    gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
+                                 t->keepalive_grace_delta_t),
+                    invoke_combiner_closure, watchdog_arg,
+                    gpr_now(GPR_CLOCK_MONOTONIC));
   } else {
-    GRPC_CHTTP2_UNREF_TRANSPORT(exec_ctx, t, "existential reason of existence");
+    GRPC_CHTTP2_UNREF_TRANSPORT(exec_ctx, t, "keepalive ping");
   }
 }
 
 static void keepalive_ping_end(grpc_exec_ctx *exec_ctx, void *arg,
                                grpc_error *error) {
   grpc_chttp2_transport *t = arg;
-  //GRPC_CHTTP2_UNREF_TRANSPORT(exec_ctx, t, "existential reason of existence");
-  grpc_timer_init(exec_ctx, &t->keepalive_ping_timer,
-                  gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
-                               t->keepalive_ping_delta_t),
-                  keepalive_ping_start, t, gpr_now(GPR_CLOCK_MONOTONIC));
+  if (error == GRPC_ERROR_NONE) {
+    // TODO(atash): this might be a race condition with keepalive_watchdog's
+    // timer cancel if they're both queued on the combiner and the error code
+    // isn't changed for the watchdog by this cancel (and vice versa).
+    grpc_timer_cancel(exec_ctx, &t->keepalive_watchdog_timer);
+    combiner_closure_arg *keepalive_arg =
+        make_combiner_closure_arg(keepalive_ping_start, t, t->combiner);
+    grpc_timer_init(exec_ctx, &t->keepalive_ping_timer,
+                    gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
+                                 t->keepalive_ping_delta_t),
+                    invoke_combiner_closure, keepalive_arg,
+                    gpr_now(GPR_CLOCK_MONOTONIC));
+  } else {
+    GRPC_CHTTP2_UNREF_TRANSPORT(exec_ctx, t, "keepalive ping");
+  }
 }
 
-//static void keepalive_watchdog(grpc_exec_ctx *exec_ctx, void *arg,
-//                               grpc_error *error) {}
+static void keepalive_watchdog(grpc_exec_ctx *exec_ctx, void *arg,
+                               grpc_error *error) {
+  grpc_chttp2_transport *t = arg;
+  if (error == GRPC_ERROR_NONE) {
+    grpc_timer_cancel(exec_ctx, &t->keepalive_ping_timer);
+    // TODO(atash) call the relevant destruction thing here.
+  }
+  GRPC_CHTTP2_UNREF_TRANSPORT(exec_ctx, t, "keepalive watchdog");
+}
 
 static void init_transport(grpc_exec_ctx *exec_ctx, grpc_chttp2_transport *t,
                            const grpc_channel_args *channel_args,
@@ -442,9 +470,9 @@ static void init_transport(grpc_exec_ctx *exec_ctx, grpc_chttp2_transport *t,
     }
   }
 
-  t->keepalive_init_delta_t = gpr_time_from_seconds(10, GPR_TIMESPAN);
-  t->keepalive_ping_delta_t = gpr_time_from_seconds(10, GPR_TIMESPAN);
-  t->keepalive_grace_delta_t = gpr_time_from_seconds(10, GPR_TIMESPAN);
+  t->keepalive_init_delta_t = gpr_time_from_seconds(2, GPR_TIMESPAN);
+  t->keepalive_ping_delta_t = gpr_time_from_seconds(2, GPR_TIMESPAN);
+  t->keepalive_grace_delta_t = gpr_time_from_seconds(2, GPR_TIMESPAN);
   combiner_closure_arg *keepalive_init_combiner_closure_arg =
       make_combiner_closure_arg(keepalive_ping_start, t, t->combiner);
   grpc_timer_init(exec_ctx, &t->keepalive_ping_timer,
