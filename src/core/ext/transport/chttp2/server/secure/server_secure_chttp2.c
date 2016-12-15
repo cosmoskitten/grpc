@@ -56,7 +56,7 @@ typedef struct {
 
 static void server_security_handshaker_factory_add_handshakers(
     grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *hf,
-    grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
+    const grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
   server_security_handshaker_factory *handshaker_factory =
       (server_security_handshaker_factory *)hf;
   grpc_server_security_connector_add_handshakers(

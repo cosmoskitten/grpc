@@ -59,8 +59,7 @@ typedef struct {
   bool connecting;
 
   char *server_name;
-  grpc_chttp2_add_handshakers_func add_handshakers;
-  void *add_handshakers_user_data;
+  grpc_handshaker_factory *handshaker_factory;
 
   grpc_closure *notify;
   grpc_connect_in_args args;
@@ -89,6 +88,7 @@ static void chttp2_connector_unref(grpc_exec_ctx *exec_ctx,
     // If handshaking is not yet in progress, destroy the endpoint.
     // Otherwise, the handshaker will do this for us.
     if (c->endpoint != NULL) grpc_endpoint_destroy(exec_ctx, c->endpoint);
+    grpc_handshaker_factory_destroy(exec_ctx, c->handshaker_factory);
     gpr_free(c->server_name);
     gpr_free(c);
   }
@@ -160,10 +160,8 @@ static void start_handshake_locked(grpc_exec_ctx *exec_ctx,
         grpc_http_connect_handshaker_create(proxy_name, c->server_name));
     gpr_free(proxy_name);
   }
-  if (c->add_handshakers != NULL) {
-    c->add_handshakers(exec_ctx, c->add_handshakers_user_data,
-                       c->handshake_mgr);
-  }
+  grpc_handshaker_factory_add_handshakers(
+      exec_ctx, c->handshaker_factory, c->args.channel_args, c->handshake_mgr);
   grpc_handshake_manager_do_handshake(
       exec_ctx, c->handshake_mgr, c->endpoint, c->args.channel_args,
       c->args.deadline, NULL /* acceptor */, on_handshake_done, c);
@@ -255,15 +253,13 @@ static const grpc_connector_vtable chttp2_connector_vtable = {
 
 grpc_connector *grpc_chttp2_connector_create(
     grpc_exec_ctx *exec_ctx, const char *server_name,
-    grpc_chttp2_add_handshakers_func add_handshakers,
-    void *add_handshakers_user_data) {
+    grpc_handshaker_factory *handshaker_factory) {
   chttp2_connector *c = gpr_malloc(sizeof(*c));
   memset(c, 0, sizeof(*c));
   c->base.vtable = &chttp2_connector_vtable;
   gpr_mu_init(&c->mu);
   gpr_ref_init(&c->refs, 1);
   c->server_name = gpr_strdup(server_name);
-  c->add_handshakers = add_handshakers;
-  c->add_handshakers_user_data = add_handshakers_user_data;
+  c->handshaker_factory = handshaker_factory;
   return &c->base;
 }

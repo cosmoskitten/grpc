@@ -47,40 +47,39 @@
 #include "src/core/lib/surface/api_trace.h"
 #include "src/core/lib/surface/channel.h"
 
-typedef struct {
-  grpc_client_channel_factory base;
-  gpr_refcount refs;
-  grpc_channel_security_connector *security_connector;
-} client_channel_factory;
-
-static void client_channel_factory_ref(
-    grpc_client_channel_factory *cc_factory) {
-  client_channel_factory *f = (client_channel_factory *)cc_factory;
-  gpr_ref(&f->refs);
-}
-
-static void client_channel_factory_unref(
-    grpc_exec_ctx *exec_ctx, grpc_client_channel_factory *cc_factory) {
-  client_channel_factory *f = (client_channel_factory *)cc_factory;
-  if (gpr_unref(&f->refs)) {
-    GRPC_SECURITY_CONNECTOR_UNREF(&f->security_connector->base,
-                                  "client_channel_factory");
-    gpr_free(f);
-  }
-}
-
-static void add_handshakers(grpc_exec_ctx *exec_ctx, void *security_connector,
-                            grpc_handshake_manager *handshake_mgr) {
+static void client_handshaker_factory_add_handshakers(
+    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *handshaker_factory,
+    const grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
+  grpc_channel_security_connector *security_connector =
+      (grpc_channel_security_connector *)grpc_find_security_connector_in_args(
+          args);
   grpc_channel_security_connector_add_handshakers(exec_ctx, security_connector,
                                                   handshake_mgr);
 }
 
+static void client_handshaker_factory_destroy(
+    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *handshaker_factory) {
+  gpr_free(handshaker_factory);
+}
+
+static const grpc_handshaker_factory_vtable client_handshaker_factory_vtable = {
+    client_handshaker_factory_add_handshakers,
+    client_handshaker_factory_destroy};
+
+static void client_channel_factory_ref(
+    grpc_client_channel_factory *cc_factory) {}
+
+static void client_channel_factory_unref(
+    grpc_exec_ctx *exec_ctx, grpc_client_channel_factory *cc_factory) {}
+
 static grpc_subchannel *client_channel_factory_create_subchannel(
     grpc_exec_ctx *exec_ctx, grpc_client_channel_factory *cc_factory,
     const grpc_subchannel_args *args) {
-  client_channel_factory *f = (client_channel_factory *)cc_factory;
+  grpc_handshaker_factory *handshaker_factory =
+      gpr_malloc(sizeof(*handshaker_factory));
+  handshaker_factory->vtable = &client_handshaker_factory_vtable;
   grpc_connector *connector = grpc_chttp2_connector_create(
-      exec_ctx, args->server_name, add_handshakers, f->security_connector);
+      exec_ctx, args->server_name, handshaker_factory);
   grpc_subchannel *s = grpc_subchannel_create(exec_ctx, connector, args);
   grpc_connector_unref(exec_ctx, connector);
   return s;
@@ -90,7 +89,6 @@ static grpc_channel *client_channel_factory_create_channel(
     grpc_exec_ctx *exec_ctx, grpc_client_channel_factory *cc_factory,
     const char *target, grpc_client_channel_type type,
     const grpc_channel_args *args) {
-  client_channel_factory *f = (client_channel_factory *)cc_factory;
   grpc_channel *channel =
       grpc_channel_create(exec_ctx, target, args, GRPC_CLIENT_CHANNEL, NULL);
   grpc_resolver *resolver = grpc_resolver_create(target, args);
@@ -100,7 +98,7 @@ static grpc_channel *client_channel_factory_create_channel(
     return NULL;
   }
   grpc_client_channel_finish_initialization(
-      exec_ctx, grpc_channel_get_channel_stack(channel), resolver, &f->base);
+      exec_ctx, grpc_channel_get_channel_stack(channel), resolver, cc_factory);
   GRPC_RESOLVER_UNREF(exec_ctx, resolver, "create_channel");
   return channel;
 }
@@ -151,21 +149,15 @@ grpc_channel *grpc_secure_channel_create(grpc_channel_credentials *creds,
     grpc_channel_args_destroy(new_args_from_connector);
   }
   // Create client channel factory.
-  client_channel_factory *f = gpr_malloc(sizeof(*f));
-  memset(f, 0, sizeof(*f));
-  f->base.vtable = &client_channel_factory_vtable;
-  gpr_ref_init(&f->refs, 1);
-  GRPC_SECURITY_CONNECTOR_REF(&security_connector->base,
-                              "grpc_secure_channel_create");
-  f->security_connector = security_connector;
+  grpc_client_channel_factory *factory = gpr_malloc(sizeof(*factory));
+  memset(factory, 0, sizeof(*factory));
+  factory->vtable = &client_channel_factory_vtable;
   // Create channel.
   grpc_channel *channel = client_channel_factory_create_channel(
-      &exec_ctx, &f->base, target, GRPC_CLIENT_CHANNEL_TYPE_REGULAR, new_args);
+      &exec_ctx, factory, target, GRPC_CLIENT_CHANNEL_TYPE_REGULAR, new_args);
   // Clean up.
-  GRPC_SECURITY_CONNECTOR_UNREF(&f->security_connector->base,
-                                "secure_client_channel_factory_create_channel");
   grpc_channel_args_destroy(new_args);
-  grpc_client_channel_factory_unref(&exec_ctx, &f->base);
+  grpc_client_channel_factory_unref(&exec_ctx, factory);
   grpc_exec_ctx_finish(&exec_ctx);
   return channel; /* may be NULL */
 }

@@ -35,7 +35,7 @@
 
 void grpc_handshaker_factory_add_handshakers(
     grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *handshaker_factory,
-    grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
+    const grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
   if (handshaker_factory != NULL) {
     handshaker_factory->vtable->add_handshakers(exec_ctx, handshaker_factory,
                                                 args, handshake_mgr);
