@@ -292,6 +292,7 @@ add_library(grpc
   src/core/lib/channel/connected_channel.c
   src/core/lib/channel/deadline_filter.c
   src/core/lib/channel/handshaker.c
+  src/core/lib/channel/handshaker_factory.c
   src/core/lib/channel/http_client_filter.c
   src/core/lib/channel/http_server_filter.c
   src/core/lib/channel/message_size_filter.c
@@ -573,6 +574,7 @@ add_library(grpc_cronet
   src/core/lib/channel/connected_channel.c
   src/core/lib/channel/deadline_filter.c
   src/core/lib/channel/handshaker.c
+  src/core/lib/channel/handshaker_factory.c
   src/core/lib/channel/http_client_filter.c
   src/core/lib/channel/http_server_filter.c
   src/core/lib/channel/message_size_filter.c
@@ -825,6 +827,7 @@ add_library(grpc_unsecure
   src/core/lib/channel/connected_channel.c
   src/core/lib/channel/deadline_filter.c
   src/core/lib/channel/handshaker.c
+  src/core/lib/channel/handshaker_factory.c
   src/core/lib/channel/http_client_filter.c
   src/core/lib/channel/http_server_filter.c
   src/core/lib/channel/message_size_filter.c
@@ -1292,6 +1295,7 @@ add_library(grpc++_cronet
   src/core/lib/channel/connected_channel.c
   src/core/lib/channel/deadline_filter.c
   src/core/lib/channel/handshaker.c
+  src/core/lib/channel/handshaker_factory.c
   src/core/lib/channel/http_client_filter.c
   src/core/lib/channel/http_server_filter.c
   src/core/lib/channel/message_size_filter.c

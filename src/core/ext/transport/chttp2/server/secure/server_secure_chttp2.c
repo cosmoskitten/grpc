@@ -50,13 +50,13 @@
 #include "src/core/lib/surface/server.h"
 
 typedef struct {
-  grpc_chttp2_server_handshaker_factory base;
+  grpc_handshaker_factory base;
   grpc_server_security_connector *security_connector;
 } server_security_handshaker_factory;
 
 static void server_security_handshaker_factory_add_handshakers(
-    grpc_exec_ctx *exec_ctx, grpc_chttp2_server_handshaker_factory *hf,
-    grpc_handshake_manager *handshake_mgr) {
+    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *hf,
+    grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
   server_security_handshaker_factory *handshaker_factory =
       (server_security_handshaker_factory *)hf;
   grpc_server_security_connector_add_handshakers(
@@ -64,7 +64,7 @@ static void server_security_handshaker_factory_add_handshakers(
 }
 
 static void server_security_handshaker_factory_destroy(
-    grpc_exec_ctx *exec_ctx, grpc_chttp2_server_handshaker_factory *hf) {
+    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *hf) {
   server_security_handshaker_factory *handshaker_factory =
       (server_security_handshaker_factory *)hf;
   GRPC_SECURITY_CONNECTOR_UNREF(&handshaker_factory->security_connector->base,
@@ -72,7 +72,7 @@ static void server_security_handshaker_factory_destroy(
   gpr_free(hf);
 }
 
-static const grpc_chttp2_server_handshaker_factory_vtable
+static const grpc_handshaker_factory_vtable
     server_security_handshaker_factory_vtable = {
         server_security_handshaker_factory_add_handshakers,
         server_security_handshaker_factory_destroy};
