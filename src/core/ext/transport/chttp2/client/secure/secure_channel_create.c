@@ -82,6 +82,9 @@ static const grpc_client_channel_factory_vtable client_channel_factory_vtable =
      client_channel_factory_create_subchannel,
      client_channel_factory_create_channel};
 
+static grpc_client_channel_factory client_channel_factory = {
+    &client_channel_factory_vtable};
+
 /* Create a secure client channel:
    Asynchronously: - resolve target
                    - connect to it (trying alternatives as presented)
@@ -115,9 +118,8 @@ grpc_channel *grpc_secure_channel_create(grpc_channel_credentials *creds,
         target, GRPC_STATUS_INTERNAL, "Failed to create security connector.");
   }
   // Create client channel factory.
-  grpc_client_channel_factory *factory = gpr_malloc(sizeof(*factory));
-  memset(factory, 0, sizeof(*factory));
-  factory->vtable = &client_channel_factory_vtable;
+  grpc_client_channel_factory *factory =
+      (grpc_client_channel_factory *)&client_channel_factory;
   // Add channel args containing the client channel factory and security
   // connector.
   grpc_arg args_to_add[2];
@@ -133,6 +135,8 @@ grpc_channel *grpc_secure_channel_create(grpc_channel_credentials *creds,
   grpc_channel *channel = client_channel_factory_create_channel(
       &exec_ctx, factory, target, GRPC_CLIENT_CHANNEL_TYPE_REGULAR, new_args);
   // Clean up.
+  GRPC_SECURITY_CONNECTOR_UNREF(&security_connector->base,
+                                "secure_client_channel_factory_create_channel");
   grpc_channel_args_destroy(new_args);
   grpc_client_channel_factory_unref(&exec_ctx, factory);
   grpc_exec_ctx_finish(&exec_ctx);
