@@ -41,7 +41,6 @@
 /// If \a handshaker_factory is non-NULL, it will be used to add handshakers.
 /// Takes ownership of \a handshaker_factory.
 grpc_connector* grpc_chttp2_connector_create(
-    grpc_exec_ctx* exec_ctx, const char* server_name,
-    grpc_handshaker_factory* handshaker_factory);
+    grpc_exec_ctx* exec_ctx, grpc_handshaker_factory* handshaker_factory);
 
 #endif /* GRPC_CORE_EXT_TRANSPORT_CHTTP2_CLIENT_CHTTP2_CONNECTOR_H */
