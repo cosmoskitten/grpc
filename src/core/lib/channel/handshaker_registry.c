@@ -49,7 +49,9 @@ typedef struct {
 static void grpc_handshaker_factory_list_register(
     grpc_handshaker_factory_list* list, bool at_start,
     grpc_handshaker_factory* factory) {
-  list->list = gpr_realloc(list->list, list->num_factories + 1);
+  list->list = gpr_realloc(
+      list->list,
+      (list->num_factories + 1) * sizeof(grpc_handshaker_factory*));
   if (at_start) {
     memmove(list->list + 1, list->list,
             sizeof(grpc_handshaker_factory*) * list->num_factories);
