@@ -442,7 +442,7 @@ bool Server::RegisterService(const grpc::string* host, Service* service) {
     if (method->handler() == nullptr) {  // Async method
       method->set_server_tag(tag);
     } else {
-    for (auto value : sync_req_mgrs_) {
+      for (auto value : sync_req_mgrs_) {
         value->AddSyncMethod(method, tag);
       }
     }
