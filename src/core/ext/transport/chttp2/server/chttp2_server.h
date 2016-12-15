@@ -36,16 +36,12 @@
 
 #include <grpc/impl/codegen/grpc_types.h>
 
-#include "src/core/lib/channel/handshaker_factory.h"
 #include "src/core/lib/iomgr/exec_ctx.h"
 
 /// Adds a port to \a server.  Sets \a port_num to the port number.
-/// If \a handshaker_factory is not NULL, it will be used to create
-/// handshakers for the port.
-/// Takes ownership of \a args and \a handshaker_factory.
-grpc_error *grpc_chttp2_server_add_port(
-    grpc_exec_ctx *exec_ctx, grpc_server *server, const char *addr,
-    grpc_channel_args *args, grpc_handshaker_factory *handshaker_factory,
-    int *port_num);
+/// Takes ownership of \a args.
+grpc_error *grpc_chttp2_server_add_port(grpc_exec_ctx *exec_ctx,
+                                        grpc_server *server, const char *addr,
+                                        grpc_channel_args *args, int *port_num);
 
 #endif /* GRPC_CORE_EXT_TRANSPORT_CHTTP2_SERVER_CHTTP2_SERVER_H */

@@ -49,26 +49,6 @@
 #include "src/core/lib/surface/api_trace.h"
 #include "src/core/lib/surface/server.h"
 
-static void server_security_handshaker_factory_add_handshakers(
-    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *hf,
-    const grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
-  grpc_server_security_connector *security_connector =
-      (grpc_server_security_connector *)grpc_find_security_connector_in_args(
-          args);
-  grpc_server_security_connector_add_handshakers(
-      exec_ctx, security_connector, handshake_mgr);
-}
-
-static void server_security_handshaker_factory_destroy(
-    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *hf) {
-  gpr_free(hf);
-}
-
-static const grpc_handshaker_factory_vtable
-    server_security_handshaker_factory_vtable = {
-        server_security_handshaker_factory_add_handshakers,
-        server_security_handshaker_factory_destroy};
-
 int grpc_server_add_secure_http2_port(grpc_server *server, const char *addr,
                                       grpc_server_credentials *creds) {
   grpc_exec_ctx exec_ctx = GRPC_EXEC_CTX_INIT;
@@ -101,17 +81,11 @@ int grpc_server_add_secure_http2_port(grpc_server *server, const char *addr,
   grpc_arg args_to_add[2];
   args_to_add[0] = grpc_server_credentials_to_arg(creds);
   args_to_add[1] = grpc_security_connector_to_arg(&sc->base);
-  grpc_channel_args *args = grpc_channel_args_copy_and_add(
-      grpc_server_get_channel_args(server), args_to_add,
-      GPR_ARRAY_SIZE(args_to_add));
-  // Create handshaker factory.
-  grpc_handshaker_factory *handshaker_factory =
-      gpr_malloc(sizeof(*handshaker_factory));
-  memset(handshaker_factory, 0, sizeof(*handshaker_factory));
-  handshaker_factory->vtable = &server_security_handshaker_factory_vtable;
+  grpc_channel_args *args =
+      grpc_channel_args_copy_and_add(grpc_server_get_channel_args(server),
+                                     args_to_add, GPR_ARRAY_SIZE(args_to_add));
   // Add server port.
-  err = grpc_chttp2_server_add_port(&exec_ctx, server, addr, args,
-                                    handshaker_factory, &port_num);
+  err = grpc_chttp2_server_add_port(&exec_ctx, server, addr, args, &port_num);
 done:
   grpc_exec_ctx_finish(&exec_ctx);
   if (err != GRPC_ERROR_NONE) {

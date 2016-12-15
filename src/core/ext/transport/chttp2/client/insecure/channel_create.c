@@ -53,8 +53,7 @@ static void client_channel_factory_unref(
 static grpc_subchannel *client_channel_factory_create_subchannel(
     grpc_exec_ctx *exec_ctx, grpc_client_channel_factory *cc_factory,
     const grpc_subchannel_args *args) {
-  grpc_connector *connector =
-      grpc_chttp2_connector_create(exec_ctx, NULL /* handshaker_factory */);
+  grpc_connector *connector = grpc_chttp2_connector_create();
   grpc_subchannel *s = grpc_subchannel_create(exec_ctx, connector, args);
   grpc_connector_unref(exec_ctx, connector);
   return s;

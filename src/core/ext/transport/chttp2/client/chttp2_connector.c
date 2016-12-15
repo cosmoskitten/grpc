@@ -59,8 +59,6 @@ typedef struct {
   bool shutdown;
   bool connecting;
 
-  grpc_handshaker_factory *handshaker_factory;
-
   grpc_closure *notify;
   grpc_connect_in_args args;
   grpc_connect_out_args *result;
@@ -88,7 +86,6 @@ static void chttp2_connector_unref(grpc_exec_ctx *exec_ctx,
     // If handshaking is not yet in progress, destroy the endpoint.
     // Otherwise, the handshaker will do this for us.
     if (c->endpoint != NULL) grpc_endpoint_destroy(exec_ctx, c->endpoint);
-    grpc_handshaker_factory_destroy(exec_ctx, c->handshaker_factory);
     gpr_free(c);
   }
 }
@@ -152,19 +149,8 @@ static void on_handshake_done(grpc_exec_ctx *exec_ctx, void *arg,
 static void start_handshake_locked(grpc_exec_ctx *exec_ctx,
                                    chttp2_connector *c) {
   c->handshake_mgr = grpc_handshake_manager_create();
-#if 0
-  char *proxy_name = grpc_get_http_proxy_server();
-  if (proxy_name != NULL) {
-    grpc_handshake_manager_add(c->handshake_mgr,
-                               grpc_http_connect_handshaker_create(proxy_name));
-    gpr_free(proxy_name);
-  }
-  grpc_handshaker_factory_add_handshakers(
-      exec_ctx, c->handshaker_factory, c->args.channel_args, c->handshake_mgr);
-#else
   grpc_handshakers_add(exec_ctx, HANDSHAKER_CLIENT, c->args.channel_args,
                        c->handshake_mgr);
-#endif
   grpc_handshake_manager_do_handshake(
       exec_ctx, c->handshake_mgr, c->endpoint, c->args.channel_args,
       c->args.deadline, NULL /* acceptor */, on_handshake_done, c);
@@ -254,13 +240,11 @@ static const grpc_connector_vtable chttp2_connector_vtable = {
     chttp2_connector_ref, chttp2_connector_unref, chttp2_connector_shutdown,
     chttp2_connector_connect};
 
-grpc_connector *grpc_chttp2_connector_create(
-    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *handshaker_factory) {
+grpc_connector *grpc_chttp2_connector_create() {
   chttp2_connector *c = gpr_malloc(sizeof(*c));
   memset(c, 0, sizeof(*c));
   c->base.vtable = &chttp2_connector_vtable;
   gpr_mu_init(&c->mu);
   gpr_ref_init(&c->refs, 1);
-  c->handshaker_factory = handshaker_factory;
   return &c->base;
 }

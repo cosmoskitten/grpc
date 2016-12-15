@@ -46,25 +46,6 @@
 #include "src/core/lib/surface/api_trace.h"
 #include "src/core/lib/surface/channel.h"
 
-static void client_handshaker_factory_add_handshakers(
-    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *handshaker_factory,
-    const grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
-  grpc_channel_security_connector *security_connector =
-      (grpc_channel_security_connector *)grpc_find_security_connector_in_args(
-          args);
-  grpc_channel_security_connector_add_handshakers(exec_ctx, security_connector,
-                                                  handshake_mgr);
-}
-
-static void client_handshaker_factory_destroy(
-    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *handshaker_factory) {
-  gpr_free(handshaker_factory);
-}
-
-static const grpc_handshaker_factory_vtable client_handshaker_factory_vtable = {
-    client_handshaker_factory_add_handshakers,
-    client_handshaker_factory_destroy};
-
 static void client_channel_factory_ref(
     grpc_client_channel_factory *cc_factory) {}
 
@@ -74,11 +55,7 @@ static void client_channel_factory_unref(
 static grpc_subchannel *client_channel_factory_create_subchannel(
     grpc_exec_ctx *exec_ctx, grpc_client_channel_factory *cc_factory,
     const grpc_subchannel_args *args) {
-  grpc_handshaker_factory *handshaker_factory =
-      gpr_malloc(sizeof(*handshaker_factory));
-  handshaker_factory->vtable = &client_handshaker_factory_vtable;
-  grpc_connector *connector =
-      grpc_chttp2_connector_create(exec_ctx, handshaker_factory);
+  grpc_connector *connector = grpc_chttp2_connector_create();
   grpc_subchannel *s = grpc_subchannel_create(exec_ctx, connector, args);
   grpc_connector_unref(exec_ctx, connector);
   return s;

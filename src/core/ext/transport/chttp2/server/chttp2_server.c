@@ -63,7 +63,6 @@ typedef struct {
   grpc_server *server;
   grpc_tcp_server *tcp_server;
   grpc_channel_args *args;
-  grpc_handshaker_factory *handshaker_factory;
   gpr_mu mu;
   bool shutdown;
   grpc_closure tcp_server_shutdown_complete;
@@ -182,11 +181,6 @@ static void on_accept(grpc_exec_ctx *exec_ctx, void *arg, grpc_endpoint *tcp,
   connection_state->handshake_mgr = handshake_mgr;
   grpc_handshakers_add(exec_ctx, HANDSHAKER_SERVER, state->args,
                        connection_state->handshake_mgr);
-#if 0
-  grpc_handshaker_factory_add_handshakers(exec_ctx, state->handshaker_factory,
-                                          state->args,
-                                          connection_state->handshake_mgr);
-#endif
   // TODO(roth): We should really get this timeout value from channel
   // args instead of hard-coding it.
   const gpr_timespec deadline = gpr_time_add(
@@ -220,7 +214,6 @@ static void tcp_server_shutdown_complete(grpc_exec_ctx *exec_ctx, void *arg,
   // Flush queued work before destroying handshaker factory, since that
   // may do a synchronous unref.
   grpc_exec_ctx_flush(exec_ctx);
-  grpc_handshaker_factory_destroy(exec_ctx, state->handshaker_factory);
   if (destroy_done != NULL) {
     destroy_done->cb(exec_ctx, destroy_done->cb_arg, GRPC_ERROR_REF(error));
     grpc_exec_ctx_flush(exec_ctx);
@@ -245,10 +238,10 @@ static void server_destroy_listener(grpc_exec_ctx *exec_ctx,
   grpc_tcp_server_unref(exec_ctx, tcp_server);
 }
 
-grpc_error *grpc_chttp2_server_add_port(
-    grpc_exec_ctx *exec_ctx, grpc_server *server, const char *addr,
-    grpc_channel_args *args, grpc_handshaker_factory *handshaker_factory,
-    int *port_num) {
+grpc_error *grpc_chttp2_server_add_port(grpc_exec_ctx *exec_ctx,
+                                        grpc_server *server, const char *addr,
+                                        grpc_channel_args *args,
+                                        int *port_num) {
   grpc_resolved_addresses *resolved = NULL;
   grpc_tcp_server *tcp_server = NULL;
   size_t i;
@@ -278,7 +271,6 @@ grpc_error *grpc_chttp2_server_add_port(
   state->server = server;
   state->tcp_server = tcp_server;
   state->args = args;
-  state->handshaker_factory = handshaker_factory;
   state->shutdown = true;
   gpr_mu_init(&state->mu);
 
@@ -333,7 +325,6 @@ error:
     grpc_tcp_server_unref(exec_ctx, tcp_server);
   } else {
     grpc_channel_args_destroy(args);
-    grpc_handshaker_factory_destroy(exec_ctx, handshaker_factory);
     gpr_free(state);
   }
   *port_num = 0;

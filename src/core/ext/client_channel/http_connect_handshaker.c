@@ -304,7 +304,8 @@ static const grpc_handshaker_vtable http_connect_handshaker_vtable = {
     http_connect_handshaker_destroy, http_connect_handshaker_shutdown,
     http_connect_handshaker_do_handshake};
 
-grpc_handshaker* grpc_http_connect_handshaker_create(const char* proxy_server) {
+static grpc_handshaker* grpc_http_connect_handshaker_create(
+    const char* proxy_server) {
   GPR_ASSERT(proxy_server != NULL);
   http_connect_handshaker* handshaker = gpr_malloc(sizeof(*handshaker));
   memset(handshaker, 0, sizeof(*handshaker));
@@ -351,19 +352,18 @@ done:
 //
 
 static void handshaker_factory_add_handshakers(
-    grpc_exec_ctx *exec_ctx, grpc_handshaker_factory *factory,
-    const grpc_channel_args *args, grpc_handshake_manager *handshake_mgr) {
-  char *proxy_name = grpc_get_http_proxy_server();
+    grpc_exec_ctx* exec_ctx, grpc_handshaker_factory* factory,
+    const grpc_channel_args* args, grpc_handshake_manager* handshake_mgr) {
+  char* proxy_name = grpc_get_http_proxy_server();
   if (proxy_name != NULL) {
     grpc_handshake_manager_add(handshake_mgr,
-                               grpc_http_connect_handshaker_create(
-                                   proxy_name, "bogus_server_name"));  // FIXME
+                               grpc_http_connect_handshaker_create(proxy_name));
     gpr_free(proxy_name);
   }
 }
 
-static void handshaker_factory_destroy(grpc_exec_ctx *exec_ctx,
-                                       grpc_handshaker_factory *factory) {
+static void handshaker_factory_destroy(grpc_exec_ctx* exec_ctx,
+                                       grpc_handshaker_factory* factory) {
   gpr_free(factory);
 }
 
