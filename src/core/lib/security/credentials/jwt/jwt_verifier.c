@@ -39,6 +39,7 @@
 #include "src/core/lib/http/httpcli.h"
 #include "src/core/lib/iomgr/polling_entity.h"
 #include "src/core/lib/security/util/b64.h"
+#include "src/core/lib/support/string.h"
 #include "src/core/lib/tsi/ssl_types.h"
 
 #include <grpc/support/alloc.h>
@@ -727,7 +728,7 @@ const char *grpc_jwt_issuer_email_domain(const char *issuer) {
   if (dot == NULL || dot == email_domain) return email_domain;
   GPR_ASSERT(dot > email_domain);
   /* There may be a subdomain, we just want the domain. */
-  dot = memrchr(email_domain, '.', (size_t)(dot - email_domain));
+  dot = gpr_memrchr(email_domain, '.', (size_t)(dot - email_domain));
   if (dot == NULL) return email_domain;
   return dot + 1;
 }
