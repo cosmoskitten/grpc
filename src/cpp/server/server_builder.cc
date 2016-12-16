@@ -60,9 +60,8 @@ ServerBuilder::ServerBuilder()
       resource_quota_(nullptr),
       generic_service_(nullptr) {
   gpr_once_init(&once_init_plugin_list, do_plugin_list_init);
-  for (auto value : g_plugin_factory_list) {
-    auto& factory = value;
-    plugins_.emplace_back(factory());
+  for (auto& value : g_plugin_factory_list) {
+    plugins_.emplace_back(value());
   }
 
   // all compression algorithms enabled by default.
@@ -179,12 +178,12 @@ ServerBuilder& ServerBuilder::AddListeningPort(
 
 std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   ChannelArguments args;
-  for (auto option : options_) {
+  for (auto& option : options_) {
     option->UpdateArguments(&args);
     option->UpdatePlugins(&plugins_);
   }
 
-  for (auto plugin : plugins_) {
+  for (auto& plugin : plugins_) {
     plugin->UpdateChannelArguments(&args);
   }
 
@@ -214,7 +213,7 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
 
   // == Determine if the server has any syncrhonous methods ==
   bool has_sync_methods = false;
-  for (auto value : services_) {
+  for (const auto& value : services_) {
     if (value->service->has_synchronous_methods()) {
       has_sync_methods = true;
       break;
@@ -222,7 +221,7 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   }
 
   if (!has_sync_methods) {
-    for (auto plugin : plugins_) {
+    for (const auto& plugin : plugins_) {
       if (plugin->has_sync_methods()) {
         has_sync_methods = true;
         break;
@@ -271,7 +270,7 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   // All sync cqs (if any) are frequently polled by ThreadManager
   int num_frequently_polled_cqs = sync_server_cqs->size();
 
-  for (auto value : sync_server_cqs) {
+  for (const auto& value : sync_server_cqs) {
     grpc_server_register_completion_queue(server->server_, value->cq(),
                                           nullptr);
   }
@@ -281,7 +280,7 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   // calling Next() or AsyncNext()) and hence are not safe to be used for
   // listening to incoming channels. Such completion queues must be registered
   // as non-listening queues
-  for (auto value : cqs_) {
+  for (const auto& value : cqs_) {
     if (value->IsFrequentlyPolled()) {
       grpc_server_register_completion_queue(server->server_, value->cq(),
                                             nullptr);
@@ -298,20 +297,20 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
     return nullptr;
   }
 
-  for (auto service : services_) {
-    if (!server->RegisterService(service->host.get(), service->service)) {
+  for (const auto& value : services_) {
+    if (!server->RegisterService(value->host.get(), value->service)) {
       return nullptr;
     }
   }
 
-  for (auto plugin : plugins_) {
+  for (const auto& plugin : plugins_) {
     plugin->InitServer(initializer);
   }
 
   if (generic_service_) {
     server->RegisterAsyncGenericService(generic_service_);
   } else {
-    for (auto value : services_) {
+    for (const auto& value : services_) {
       if (value->service->has_generic_methods()) {
         gpr_log(GPR_ERROR,
                 "Some methods were marked generic but there is no "
@@ -334,7 +333,7 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
     return nullptr;
   }
 
-  for (auto plugin : plugins_) {
+  for (const auto& plugin : plugins_) {
     plugin->Finish(initializer);
   }
 
