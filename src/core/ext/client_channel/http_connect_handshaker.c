@@ -304,8 +304,7 @@ static const grpc_handshaker_vtable http_connect_handshaker_vtable = {
     http_connect_handshaker_destroy, http_connect_handshaker_shutdown,
     http_connect_handshaker_do_handshake};
 
-static grpc_handshaker* grpc_http_connect_handshaker_create(
-    const char* proxy_server) {
+grpc_handshaker* grpc_http_connect_handshaker_create(const char* proxy_server) {
   GPR_ASSERT(proxy_server != NULL);
   http_connect_handshaker* handshaker = gpr_malloc(sizeof(*handshaker));
   memset(handshaker, 0, sizeof(*handshaker));
