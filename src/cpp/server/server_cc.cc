@@ -327,7 +327,7 @@ class Server::SyncRequestThreadManager : public ThreadManager {
 
   void Start() {
     if (!sync_requests_.empty()) {
-      for (auto value : sync_requests_) {
+      for (const auto& value : sync_requests_) {
         value->SetupRequest();
         value->Request(server_->c_server(), server_cq_->cq());
       }
@@ -364,7 +364,7 @@ Server::Server(
   global_callbacks_ = g_callbacks;
   global_callbacks_->UpdateArguments(args);
 
-  for (auto value : sync_server_cqs_) {
+  for (const auto& value : *sync_server_cqs_) {
     sync_req_mgrs_.emplace_back(new SyncRequestThreadManager(
         this, value.get(), global_callbacks_, min_pollers, max_pollers,
         sync_cq_timeout_msec));
@@ -384,7 +384,7 @@ Server::~Server() {
       Shutdown();
     } else if (!started_) {
       // Shutdown the completion queues
-      for (auto value : sync_req_mgrs_) {
+      for (const auto& value : sync_req_mgrs_) {
         value->ShutdownAndDrainCompletionQueue();
       }
     }
@@ -442,7 +442,7 @@ bool Server::RegisterService(const grpc::string* host, Service* service) {
     if (method->handler() == nullptr) {  // Async method
       method->set_server_tag(tag);
     } else {
-      for (auto value : sync_req_mgrs_) {
+      for (const auto& value : sync_req_mgrs_) {
         value->AddSyncMethod(method, tag);
       }
     }
@@ -481,7 +481,7 @@ bool Server::Start(ServerCompletionQueue** cqs, size_t num_cqs) {
   grpc_server_start(server_);
 
   if (!has_generic_service_) {
-    for (auto value : sync_req_mgrs_) {
+    for (const auto& value : sync_req_mgrs_) {
       value->AddUnknownSyncMethod();
     }
 
@@ -492,7 +492,7 @@ bool Server::Start(ServerCompletionQueue** cqs, size_t num_cqs) {
     }
   }
 
-  for (auto value : sync_req_mgrs_) {
+  for (const auto& value : sync_req_mgrs_) {
     value->Start();
   }
 
@@ -526,12 +526,12 @@ void Server::ShutdownInternal(gpr_timespec deadline) {
 
     // Shutdown all ThreadManagers. This will try to gracefully stop all the
     // threads in the ThreadManagers (once they process any inflight requests)
-    for (auto value : sync_req_mgrs_) {
+    for (const auto& value : sync_req_mgrs_) {
       value->Shutdown();  // ThreadManager's Shutdown()
     }
 
     // Wait for threads in all ThreadManagers to terminate
-    for (auto value : sync_req_mgrs_) {
+    for (const auto& value : sync_req_mgrs_) {
       value->Wait();
       value->ShutdownAndDrainCompletionQueue();
     }

@@ -60,7 +60,7 @@ ServerBuilder::ServerBuilder()
       resource_quota_(nullptr),
       generic_service_(nullptr) {
   gpr_once_init(&once_init_plugin_list, do_plugin_list_init);
-  for (auto& value : g_plugin_factory_list) {
+  for (const auto& value : *g_plugin_factory_list) {
     plugins_.emplace_back(value());
   }
 
@@ -178,13 +178,13 @@ ServerBuilder& ServerBuilder::AddListeningPort(
 
 std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   ChannelArguments args;
-  for (auto& option : options_) {
-    option->UpdateArguments(&args);
-    option->UpdatePlugins(&plugins_);
+  for (const auto& value : options_) {
+    value->UpdateArguments(&args);
+    value->UpdatePlugins(&plugins_);
   }
 
-  for (auto& plugin : plugins_) {
-    plugin->UpdateChannelArguments(&args);
+  for (const auto& value : plugins_) {
+    value->UpdateChannelArguments(&args);
   }
 
   if (max_receive_message_size_ >= 0) {
@@ -221,8 +221,8 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   }
 
   if (!has_sync_methods) {
-    for (const auto& plugin : plugins_) {
-      if (plugin->has_sync_methods()) {
+    for (const auto& value : plugins_) {
+      if (value->has_sync_methods()) {
         has_sync_methods = true;
         break;
       }
@@ -270,7 +270,7 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   // All sync cqs (if any) are frequently polled by ThreadManager
   int num_frequently_polled_cqs = sync_server_cqs->size();
 
-  for (const auto& value : sync_server_cqs) {
+  for (const auto& value : *sync_server_cqs) {
     grpc_server_register_completion_queue(server->server_, value->cq(),
                                           nullptr);
   }
@@ -303,8 +303,8 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
     }
   }
 
-  for (const auto& plugin : plugins_) {
-    plugin->InitServer(initializer);
+  for (const auto& value : plugins_) {
+    value->InitServer(initializer);
   }
 
   if (generic_service_) {
@@ -333,8 +333,8 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
     return nullptr;
   }
 
-  for (const auto& plugin : plugins_) {
-    plugin->Finish(initializer);
+  for (const auto& value : plugins_) {
+    value->Finish(initializer);
   }
 
   return server;
