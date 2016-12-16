@@ -414,8 +414,8 @@ describe GRPC::RpcServer do
             stub = SlowStub.new(alt_host, :this_channel_is_insecure)
             begin
               stub.an_rpc(req)
-            rescue GRPC::BadStatus => e
-              bad_status_code = e.code
+            rescue GRPC::ResourceExhausted
+              one_failed_as_unavailable = true
             end
           end
         end
