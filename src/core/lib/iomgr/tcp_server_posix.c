@@ -609,7 +609,9 @@ static grpc_error *add_all_local_addrs_to_server(grpc_tcp_server *s,
         }
         root_err = GRPC_ERROR_CREATE(err_str);
         gpr_free(err_str);
+        gpr_free(addr_str);
         err = grpc_error_add_child(root_err, err);
+        break;
       } else {
         ++fd_index;
         gpr_log(GPR_DEBUG, "Assigned port %d", new_sp->port);
