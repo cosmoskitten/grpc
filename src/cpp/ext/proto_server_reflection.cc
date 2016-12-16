@@ -117,7 +117,7 @@ Status ProtoServerReflection::ListService(ServerContext* context,
   if (services_ == nullptr) {
     return Status(StatusCode::NOT_FOUND, "Services not found.");
   }
-  for (auto value : services_) {
+  for (const auto& value : services_) {
     ServiceResponse* service_response = response->add_service();
     service_response->set_name(value);
   }
@@ -197,8 +197,8 @@ Status ProtoServerReflection::GetAllExtensionNumbers(
 
   std::vector<const protobuf::FieldDescriptor*> extensions;
   descriptor_pool_->FindAllExtensions(desc, &extensions);
-  for (auto value : extensions) {
-    response->add_extension_number((value)->number());
+  for (const auto& value : extensions) {
+    response->add_extension_number(value->number());
   }
   response->set_base_type_name(type);
   return Status::OK;
