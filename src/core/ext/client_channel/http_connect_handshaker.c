@@ -363,17 +363,15 @@ static void handshaker_factory_add_handshakers(
 }
 
 static void handshaker_factory_destroy(grpc_exec_ctx* exec_ctx,
-                                       grpc_handshaker_factory* factory) {
-  gpr_free(factory);
-}
+                                       grpc_handshaker_factory* factory) {}
 
 static const grpc_handshaker_factory_vtable handshaker_factory_vtable = {
     handshaker_factory_add_handshakers, handshaker_factory_destroy};
 
+static grpc_handshaker_factory handshaker_factory = {
+    &handshaker_factory_vtable};
+
 void grpc_http_connect_register_handshaker_factory() {
-  grpc_handshaker_factory* factory = gpr_malloc(sizeof(*factory));
-  memset(factory, 0, sizeof(*factory));
-  factory->vtable = &handshaker_factory_vtable;
   grpc_handshaker_factory_register(true /* at_start */, HANDSHAKER_CLIENT,
-                                   factory);
+                                   &handshaker_factory);
 }
