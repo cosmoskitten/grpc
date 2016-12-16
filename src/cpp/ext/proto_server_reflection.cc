@@ -117,7 +117,7 @@ Status ProtoServerReflection::ListService(ServerContext* context,
   if (services_ == nullptr) {
     return Status(StatusCode::NOT_FOUND, "Services not found.");
   }
-  for (const auto& value : services_) {
+  for (const auto& value : *services_) {
     ServiceResponse* service_response = response->add_service();
     service_response->set_name(value);
   }
