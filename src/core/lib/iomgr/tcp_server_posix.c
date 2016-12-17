@@ -537,26 +537,58 @@ static grpc_error *add_addr_to_server(grpc_tcp_server *s,
   return add_socket_to_server(s, fd, addr, port_index, fd_index, listener);
 }
 
+/* Bind to "::" to get a port number not used by any address. */
+static grpc_error *get_unused_port(int *port) {
+  grpc_resolved_address wild;
+  grpc_sockaddr_make_wildcard6(0, &wild);
+  grpc_dualstack_mode dsmode;
+  int fd;
+  grpc_error *err =
+      grpc_create_dualstack_socket(&wild, SOCK_STREAM, 0, &dsmode, &fd);
+  if (err != GRPC_ERROR_NONE) {
+    return err;
+  }
+  if (dsmode == GRPC_DSMODE_IPV4) {
+    grpc_sockaddr_make_wildcard4(0, &wild);
+  }
+  if (bind(fd, (const struct sockaddr *)wild.addr, (socklen_t)wild.len) != 0) {
+    err = GRPC_OS_ERROR(errno, "bind");
+    close(fd);
+    return err;
+  }
+  if (getsockname(fd, (struct sockaddr *)wild.addr, (socklen_t *)&wild.len) !=
+      0) {
+    err = GRPC_OS_ERROR(errno, "getsockname");
+    close(fd);
+    return err;
+  }
+  close(fd);
+  *port = grpc_sockaddr_get_port(&wild);
+  return *port <= 0 ? GRPC_ERROR_CREATE("Bad port") : GRPC_ERROR_NONE;
+}
+
 /* Return the listener in s with address addr or NULL. */
 static grpc_tcp_listener *find_listener_with_addr(grpc_tcp_server *s,
                                                   grpc_resolved_address *addr) {
   grpc_tcp_listener *l;
+  gpr_mu_lock(&s->mu);
   for (l = s->head; l != NULL; l = l->next) {
     if (l->addr.len != addr->len) {
       continue;
     }
     if (memcmp(l->addr.addr, addr->addr, addr->len) == 0) {
-      return l;
+      break;
     }
   }
-  return NULL;
+  gpr_mu_unlock(&s->mu);
+  return l;
 }
 
 /* Get all addresses assigned to network interfaces on the machine and create a
    listener for each. requested_port is the port to use for every listener, or 0
    to select one random port that will be used for every listener. Set *out_port
-   to the port selected. Returns GRPC_ERROR_NONE if at least one
-   listener was added. */
+   to the port selected. Return GRPC_ERROR_NONE only if all listeners were
+   added. */
 static grpc_error *add_all_local_addrs_to_server(grpc_tcp_server *s,
                                                  unsigned port_index,
                                                  int requested_port,
@@ -566,6 +598,18 @@ static grpc_error *add_all_local_addrs_to_server(grpc_tcp_server *s,
   unsigned fd_index = 0;
   grpc_tcp_listener *sp = NULL;
   grpc_error *err = GRPC_ERROR_NONE;
+  if (requested_port == 0) {
+    /* Note: There could be a race where some local addrs can listen on the
+       selected port and some can't. The sane way to handle this would be to
+       retry by recreating the whole grpc_tcp_server. Backing out individual
+       listeners and orphaning the FDs looks like too much trouble. */
+    if ((err = get_unused_port(&requested_port)) != GRPC_ERROR_NONE) {
+      return err;
+    } else if (requested_port <= 0) {
+      return GRPC_ERROR_CREATE("Bad get_unused_port()");
+    }
+    gpr_log(GPR_DEBUG, "Picked unused port %d", requested_port);
+  }
   if (getifaddrs(&ifa) != 0 || ifa == NULL) {
     return GRPC_OS_ERROR(errno, "getifaddrs");
   }
@@ -598,33 +642,32 @@ static grpc_error *add_all_local_addrs_to_server(grpc_tcp_server *s,
             ifa_name, ifa_it->ifa_flags, addr_str);
     /* We could have multiple interfaces with the same address (e.g., bonding),
        so look for duplicates. */
-    if (find_listener_with_addr(s, &addr) == NULL) {
-      if ((err = add_addr_to_server(s, &addr, port_index, fd_index, &dsmode,
-                                    &new_sp)) != GRPC_ERROR_NONE) {
-        char *err_str;
-        grpc_error *root_err;
-        if (gpr_asprintf(&err_str, "Failed to add listener: %s", addr_str) <
-            0) {
-          err_str = gpr_strdup("Failed to add listener");
-        }
-        root_err = GRPC_ERROR_CREATE(err_str);
-        gpr_free(err_str);
-        gpr_free(addr_str);
-        err = grpc_error_add_child(root_err, err);
-        break;
-      } else {
-        ++fd_index;
-        gpr_log(GPR_DEBUG, "Assigned port %d", new_sp->port);
-        requested_port = new_sp->port;
-        if (sp != NULL) {
-          new_sp->is_sibling = 1;
-          sp->sibling = new_sp;
-        }
-        sp = new_sp;
-      }
-    } else {
+    if (find_listener_with_addr(s, &addr) != NULL) {
       gpr_log(GPR_DEBUG, "Skipping duplicate addr %s on interface %s", addr_str,
               ifa_name);
+      gpr_free(addr_str);
+      continue;
+    }
+    if ((err = add_addr_to_server(s, &addr, port_index, fd_index, &dsmode,
+                                  &new_sp)) != GRPC_ERROR_NONE) {
+      char *err_str = NULL;
+      grpc_error *root_err;
+      if (gpr_asprintf(&err_str, "Failed to add listener: %s", addr_str) < 0) {
+        err_str = gpr_strdup("Failed to add listener");
+      }
+      root_err = GRPC_ERROR_CREATE(err_str);
+      gpr_free(err_str);
+      gpr_free(addr_str);
+      err = grpc_error_add_child(root_err, err);
+      break;
+    } else {
+      GPR_ASSERT(requested_port == new_sp->port);
+      ++fd_index;
+      if (sp != NULL) {
+        new_sp->is_sibling = 1;
+        sp->sibling = new_sp;
+      }
+      sp = new_sp;
     }
     gpr_free(addr_str);
   }
@@ -650,51 +693,43 @@ static grpc_error *add_wildcard_addrs_to_server(grpc_tcp_server *s,
   grpc_dualstack_mode dsmode;
   grpc_tcp_listener *sp = NULL;
   grpc_tcp_listener *sp2 = NULL;
-  grpc_error *root_err = GRPC_ERROR_CREATE("Failed to add wildcard addresses");
-  grpc_error *err = GRPC_ERROR_NONE;
+  grpc_error *v6_err = GRPC_ERROR_NONE;
+  grpc_error *v4_err = GRPC_ERROR_NONE;
   *out_port = -1;
   if (s->expand_wildcard_addrs) {
-    if ((err = add_all_local_addrs_to_server(s, port_index, requested_port,
-                                             out_port)) == GRPC_ERROR_NONE) {
-      goto done;
-    }
-    root_err = grpc_error_add_child(root_err, err);
-    /* Fallback to wildcard listeners. */
+    return add_all_local_addrs_to_server(s, port_index, requested_port,
+                                         out_port);
   }
   grpc_sockaddr_make_wildcards(requested_port, &wild4, &wild6);
   /* Try listening on IPv6 first. */
-  if ((err = add_addr_to_server(s, &wild6, port_index, fd_index, &dsmode,
-                                &sp)) == GRPC_ERROR_NONE) {
+  if ((v6_err = add_addr_to_server(s, &wild6, port_index, fd_index, &dsmode,
+                                   &sp)) == GRPC_ERROR_NONE) {
     ++fd_index;
     requested_port = *out_port = sp->port;
     if (dsmode == GRPC_DSMODE_DUALSTACK || dsmode == GRPC_DSMODE_IPV4) {
-      goto done;
+      return GRPC_ERROR_NONE;
     }
-  } else {
-    root_err = grpc_error_add_child(root_err, err);
   }
   /* If we got a v6-only socket or nothing, try adding 0.0.0.0. */
   grpc_sockaddr_set_port(&wild4, requested_port);
-  if ((err = add_addr_to_server(s, &wild4, port_index, fd_index, &dsmode,
-                                &sp2)) == GRPC_ERROR_NONE) {
+  if ((v4_err = add_addr_to_server(s, &wild4, port_index, fd_index, &dsmode,
+                                   &sp2)) == GRPC_ERROR_NONE) {
     *out_port = sp2->port;
     if (sp != NULL) {
       sp2->is_sibling = 1;
       sp->sibling = sp2;
     }
-  } else {
-    root_err = grpc_error_add_child(root_err, err);
   }
-
-done:
   if (*out_port > 0) {
-    if (err != GRPC_ERROR_NONE) {
-      GRPC_LOG_IF_ERROR("add_wildcard_addrs", root_err);
-    } else {
-      GRPC_ERROR_UNREF(root_err);
-    }
+    GRPC_LOG_IF_ERROR("Failed to add :: listener", v6_err);
+    GRPC_LOG_IF_ERROR("Failed to add 0.0.0.0 listener", v4_err);
     return GRPC_ERROR_NONE;
   } else {
+    grpc_error *root_err =
+        GRPC_ERROR_CREATE("Failed add any wildcard listeners");
+    GPR_ASSERT(v6_err != GRPC_ERROR_NONE && v4_err != GRPC_ERROR_NONE);
+    root_err = grpc_error_add_child(root_err, v6_err);
+    root_err = grpc_error_add_child(root_err, v4_err);
     return root_err;
   }
 }

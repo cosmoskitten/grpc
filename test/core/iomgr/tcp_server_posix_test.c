@@ -348,13 +348,15 @@ static void test_connect(size_t num_connects,
   resolved_addr.len = sizeof(struct sockaddr_storage);
   resolved_addr1.len = sizeof(struct sockaddr_storage);
   addr->ss_family = addr1->ss_family = AF_INET;
-  GPR_ASSERT(GRPC_ERROR_NONE ==
-             grpc_tcp_server_add_port(s, &resolved_addr, &svr_port));
+  GPR_ASSERT(GRPC_LOG_IF_ERROR(
+      "grpc_tcp_server_add_port",
+      grpc_tcp_server_add_port(s, &resolved_addr, &svr_port)));
   gpr_log(GPR_INFO, "Allocated port %d", svr_port);
   GPR_ASSERT(svr_port > 0);
   /* Cannot use wildcard (port==0), because add_port() will try to reuse the
      same port as a previous add_port(). */
   svr1_port = grpc_pick_unused_port_or_die();
+  GPR_ASSERT(svr1_port > 0);
   gpr_log(GPR_INFO, "Picked unused port %d", svr1_port);
   grpc_sockaddr_set_port(&resolved_addr1, svr1_port);
   GPR_ASSERT(grpc_tcp_server_add_port(s, &resolved_addr1, &port) ==
@@ -506,7 +508,8 @@ int main(int argc, char **argv) {
   test_connect(1, NULL, NULL, false);
   test_connect(10, NULL, NULL, false);
 
-  /* Test dst_addrs and set dst_addrs.addrs[i].len=0 for bad dst_addrs. */
+  /* Set dst_addrs.addrs[i].len=0 for dst_addrs that are unreachable with a "::"
+     listener. */
   test_connect(1, NULL, &dst_addrs, true);
 
   /* Test connect(2) with dst_addrs. */
