@@ -55,7 +55,6 @@ class ProtoBufMethod : public grpc_generator::Method {
 
   private:
    const grpc::protobuf::MethodDescriptor *method_;
-   const grpc::protobuf::ServiceDescriptor *service;
  };
 
 class ProtoBufService : public grpc_generator::Service {
