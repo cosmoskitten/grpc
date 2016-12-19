@@ -68,6 +68,7 @@ class Http2Client {
     std::shared_ptr<Channel> channel_;
   };
 
+  void MaxStreamsWorker(std::shared_ptr<grpc::Channel> channel);
   bool AssertStatusCode(const Status& s, StatusCode expected_code);
   ServiceStub serviceStub_;
   std::shared_ptr<Channel> channel_;

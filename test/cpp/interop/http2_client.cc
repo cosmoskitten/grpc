@@ -148,6 +148,8 @@ bool Http2Client::DoGoaway() {
 
     Status s = serviceStub_.Get()->UnaryCall(&context, request, &response);
     AssertStatusCode(s, grpc::StatusCode::OK);
+    GPR_ASSERT(response.payload().body() ==
+               grpc::string(kLargeResponseSize, '\0'));
   }
 
   gpr_log(GPR_DEBUG, "Done testing goaway");
@@ -166,12 +168,14 @@ bool Http2Client::DoPing() {
 
   Status s = serviceStub_.Get()->UnaryCall(&context, request, &response);
   AssertStatusCode(s, grpc::StatusCode::OK);
+  GPR_ASSERT(response.payload().body() ==
+             grpc::string(kLargeResponseSize, '\0'));
 
   gpr_log(GPR_DEBUG, "Done testing ping");
   return true;
 }
 
-void doMaxStreamsFromThread(std::shared_ptr<grpc::Channel> channel) {
+void Http2Client::MaxStreamsWorker(std::shared_ptr<grpc::Channel> channel) {
   ClientContext context;
   SimpleRequest request;
   SimpleResponse response;
@@ -179,7 +183,11 @@ void doMaxStreamsFromThread(std::shared_ptr<grpc::Channel> channel) {
   grpc::string payload(kLargeRequestSize, '\0');
   request.mutable_payload()->set_body(payload.c_str(), kLargeRequestSize);
 
-  TestService::NewStub(channel)->UnaryCall(&context, request, &response);
+  Status s =
+      TestService::NewStub(channel)->UnaryCall(&context, request, &response);
+  AssertStatusCode(s, grpc::StatusCode::OK);
+  GPR_ASSERT(response.payload().body() ==
+             grpc::string(kLargeResponseSize, '\0'));
 }
 
 bool Http2Client::DoMaxStreams() {
@@ -190,17 +198,21 @@ bool Http2Client::DoMaxStreams() {
   ClientContext context;
   SimpleRequest request;
   SimpleResponse response;
-  request.set_response_size(271828);
-  grpc::string payload(271828, '\0');
+  request.set_response_size(kLargeResponseSize);
+  grpc::string payload(kLargeRequestSize, '\0');
   request.mutable_payload()->set_body(payload.c_str(), kLargeRequestSize);
-  Status s = 
+  Status s =
     TestService::NewStub(channel_)->UnaryCall(&context, request, &response);
   AssertStatusCode(s, grpc::StatusCode::OK);
+  GPR_ASSERT(response.payload().body() ==
+             grpc::string(kLargeResponseSize, '\0'));
 
   std::vector<std::thread> test_threads;
 
   for (int i = 0; i < 10; i++) {
-    test_threads.emplace_back(std::thread(doMaxStreamsFromThread, channel_));
+    test_threads.emplace_back(std::thread(&Http2Client::MaxStreamsWorker,
+                                          this,
+                                          channel_));
   }
 
   for (auto it = test_threads.begin(); it != test_threads.end(); it++) {
@@ -217,7 +229,7 @@ bool Http2Client::DoMaxStreams() {
 DEFINE_int32(server_port, 0, "Server port.");
 DEFINE_string(server_host, "127.0.0.1", "Server host to connect to");
 DEFINE_string(
-    test_case, "rst_stream_after_header",
+    test_case, "rst_after_header",
     "Configure different test cases. Valid options are:\n\n"
     "goaway\n"
     "max_streams\n"
