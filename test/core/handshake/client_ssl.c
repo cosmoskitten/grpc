@@ -59,7 +59,9 @@ typedef struct {
   char *alpn_preferred;
 } server_args;
 
-// From https://wiki.openssl.org/index.php/Simple_TLS_Server.
+// Based on https://wiki.openssl.org/index.php/Simple_TLS_Server.
+// Pick an arbitrary unused port and return it in *out_port. Return
+// an fd>=0 on success.
 static int create_socket(int *out_port) {
   int s;
   struct sockaddr_in addr;

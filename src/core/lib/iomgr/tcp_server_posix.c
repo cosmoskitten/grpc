@@ -726,7 +726,7 @@ static grpc_error *add_wildcard_addrs_to_server(grpc_tcp_server *s,
     return GRPC_ERROR_NONE;
   } else {
     grpc_error *root_err =
-        GRPC_ERROR_CREATE("Failed add any wildcard listeners");
+        GRPC_ERROR_CREATE("Failed to add any wildcard listeners");
     GPR_ASSERT(v6_err != GRPC_ERROR_NONE && v4_err != GRPC_ERROR_NONE);
     root_err = grpc_error_add_child(root_err, v6_err);
     root_err = grpc_error_add_child(root_err, v4_err);

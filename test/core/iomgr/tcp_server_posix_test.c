@@ -250,6 +250,7 @@ static grpc_error *tcp_connect(grpc_exec_ctx *exec_ctx, const test_addr *remote,
   const struct sockaddr *remote_addr =
       (const struct sockaddr *)remote->addr.addr;
 
+  gpr_log(GPR_INFO, "Connecting to %s", remote->str);
   gpr_mu_lock(g_mu);
   nconnects_before = g_nconnects;
   on_connect_result_init(&g_result);
@@ -290,18 +291,6 @@ static grpc_error *tcp_connect(grpc_exec_ctx *exec_ctx, const test_addr *remote,
   *result = g_result;
 
   gpr_mu_unlock(g_mu);
-  return GRPC_ERROR_NONE;
-}
-
-static grpc_error *test_connect_dst(grpc_exec_ctx *exec_ctx,
-                                    const test_addr *dst,
-                                    on_connect_result *result) {
-  grpc_error *err;
-  gpr_log(GPR_INFO, "Connecting to %s", dst->str);
-
-  if ((err = tcp_connect(exec_ctx, dst, result)) != GRPC_ERROR_NONE) {
-    return err;
-  }
   gpr_log(GPR_INFO, "Result (%d, %d) fd %d", result->port_index,
           result->fd_index, result->server_fd);
   grpc_tcp_server_unref(exec_ctx, result->server);
@@ -397,8 +386,7 @@ static void test_connect(size_t num_connects,
         test_addr_init_str(&dst);
         ++num_tested;
         on_connect_result_init(&result);
-        if ((err = test_connect_dst(&exec_ctx, &dst, &result)) ==
-                GRPC_ERROR_NONE &&
+        if ((err = tcp_connect(&exec_ctx, &dst, &result)) == GRPC_ERROR_NONE &&
             result.server_fd >= 0 && result.server == s) {
           continue;
         }
@@ -430,8 +418,8 @@ static void test_connect(size_t num_connects,
         for (connect_num = 0; connect_num < num_connects; ++connect_num) {
           on_connect_result result;
           on_connect_result_init(&result);
-          GPR_ASSERT(GRPC_LOG_IF_ERROR(
-              "test_connect_dst", test_connect_dst(&exec_ctx, &dst, &result)));
+          GPR_ASSERT(GRPC_LOG_IF_ERROR("tcp_connect",
+                                       tcp_connect(&exec_ctx, &dst, &result)));
           GPR_ASSERT(result.server_fd == fd);
           GPR_ASSERT(result.port_index == port_num);
           GPR_ASSERT(result.fd_index == fd_num);
