@@ -40,6 +40,7 @@ tools/run_tests/run_performance_tests.py \
     --category scalable \
     --remote_worker_host grpc-performance-server-32core grpc-performance-client-32core grpc-performance-client2-32core \
     --perf_args "record -F 97 --call-graph dwarf" \
+    --flame_graph_reports cpp_flamegraphs \
     || EXIT_CODE=1
 
 # scalability with 32cores go benchmarks
@@ -48,6 +49,7 @@ tools/run_tests/run_performance_tests.py \
     --category scalable \
     --remote_worker_host grpc-performance-server-32core grpc-performance-client-32core grpc-performance-client2-32core \
     --perf_args "record -F 97 -g" \
+    --flame_graph_reports go_flamegraphs \
     || EXIT_CODE=1
 
 exit $EXIT_CODE
