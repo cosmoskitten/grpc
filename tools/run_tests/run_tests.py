@@ -54,9 +54,9 @@ import time
 from six.moves import urllib
 import uuid
 
-import jobset
-import report_utils
-import watch_dirs
+import python_utils.jobset as jobset
+import python_utils.report_utils as report_utils
+import python_utils.watch_dirs as watch_dirs
 
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '../..'))
