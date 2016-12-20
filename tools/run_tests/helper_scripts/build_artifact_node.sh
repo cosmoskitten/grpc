@@ -34,7 +34,7 @@ source ~/.nvm/nvm.sh
 nvm use 4
 set -ex
 
-cd $(dirname $0)/../..
+cd $(dirname $0)/../../..
 
 rm -rf build || true
 

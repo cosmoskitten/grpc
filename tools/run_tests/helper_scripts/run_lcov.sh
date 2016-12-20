@@ -32,7 +32,7 @@ set -ex
 
 out=$(readlink -f ${1:-coverage})
 
-root=$(readlink -f $(dirname $0)/../..)
+root=$(readlink -f $(dirname $0)/../../..)
 shift || true
 tmp=$(mktemp)
 cd $root

@@ -28,7 +28,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cd `dirname $0`/../..
+cd `dirname $0`/../../..
 grpc_dir=`pwd`
 
 distrib=`md5sum /etc/issue | cut -f1 -d\ `

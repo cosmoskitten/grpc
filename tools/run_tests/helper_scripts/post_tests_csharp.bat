@@ -36,7 +36,7 @@ if not "%CONFIG%" == "gcov" (
 )
 
 @rem enter src/csharp directory
-cd /d %~dp0\..\..\src\csharp
+cd /d %~dp0\..\..\..\src\csharp
 
 @rem Generate code coverage report
 @rem TODO(jtattermusch): currently the report list is hardcoded

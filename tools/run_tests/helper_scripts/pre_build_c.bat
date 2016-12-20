@@ -32,7 +32,7 @@
 setlocal
 
 @rem enter repo root
-cd /d %~dp0\..\..
+cd /d %~dp0\..\..\..
 
 @rem Location of nuget.exe
 set NUGET=C:\nuget\nuget.exe

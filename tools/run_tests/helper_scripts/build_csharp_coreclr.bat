@@ -29,7 +29,7 @@
 
 setlocal
 
-cd /d %~dp0\..\..\src\csharp
+cd /d %~dp0\..\..\..\src\csharp
 
 dotnet restore . || goto :error
 

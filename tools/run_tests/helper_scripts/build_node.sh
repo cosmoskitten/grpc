@@ -38,6 +38,6 @@ set -ex
 CONFIG=${CONFIG:-opt}
 
 # change to grpc repo root
-cd $(dirname $0)/../..
+cd $(dirname $0)/../../..
 
 npm install --unsafe-perm --build-from-source

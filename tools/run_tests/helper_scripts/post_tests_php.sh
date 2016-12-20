@@ -32,7 +32,7 @@ set -ex
 
 if [ "$CONFIG" != "gcov" ] ; then exit ; fi
 
-root=$(readlink -f $(dirname $0)/../..)
+root=$(readlink -f $(dirname $0)/../../..)
 out=$root/reports/php_ext_coverage
 tmp1=$(mktemp)
 tmp2=$(mktemp)

@@ -34,6 +34,6 @@ set -ex
 export GRPC_CONFIG=${CONFIG:-opt}
 
 # change to grpc repo root
-cd $(dirname $0)/../..
+cd $(dirname $0)/../../..
 
 bundle install

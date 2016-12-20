@@ -30,7 +30,7 @@
 
 set -ex
 
-cd $(dirname $0)/../..
+cd $(dirname $0)/../../..
 
 mkdir -p artifacts/
 cp -r $EXTERNAL_GIT_ROOT/architecture={x86,x64},language=php,platform={windows,linux,macos}/artifacts/* artifacts/ || true

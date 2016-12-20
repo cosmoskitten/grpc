@@ -34,7 +34,7 @@
 # newly created workspace)
 set -ex
 
-cd $(dirname $0)/../..
+cd $(dirname $0)/../../..
 export repo_root=$(pwd)
 
 rm -rf "${WORKSPACE_NAME}"

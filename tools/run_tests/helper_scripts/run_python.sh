@@ -31,7 +31,7 @@
 set -ex
 
 # change to grpc repo root
-cd $(dirname $0)/../..
+cd $(dirname $0)/../../..
 
 PYTHON=`realpath -s "${1:-py27/bin/python}"`
 

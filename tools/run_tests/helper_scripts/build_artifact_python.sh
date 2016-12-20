@@ -30,7 +30,7 @@
 
 set -ex
 
-cd $(dirname $0)/../..
+cd $(dirname $0)/../../..
 
 export GRPC_PYTHON_USE_CUSTOM_BDIST=0
 export GRPC_PYTHON_BUILD_WITH_CYTHON=1

@@ -30,7 +30,7 @@
 
 set -ex
 
-cd $(dirname $0)/../../src/csharp
+cd $(dirname $0)/../../../src/csharp
 
 # TODO(jtattermusch): introduce caching
 dotnet restore .

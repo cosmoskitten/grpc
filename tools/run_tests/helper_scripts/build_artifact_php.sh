@@ -31,7 +31,7 @@
 PHP_TARGET_ARCH=$1
 set -ex
 
-cd $(dirname $0)/../..
+cd $(dirname $0)/../../..
 
 mkdir -p artifacts
 

@@ -31,7 +31,7 @@
 set -ex
 
 # cd to gRPC csharp directory
-cd $(dirname $0)/../../src/csharp
+cd $(dirname $0)/../../../src/csharp
 
 root=`pwd`
 
