@@ -35,7 +35,8 @@ import random
 import string
 import sys
 
-import jobset
+sys.path.insert(0, os.path.abspath('..'))
+import python_utils.jobset as jobset
 
 
 def create_docker_jobspec(name, dockerfile_dir, shell_command, environ={},
@@ -113,7 +114,7 @@ class PythonArtifact:
       environ['GRPC_BUILD_MANYLINUX_WHEEL'] = 'TRUE'
       return create_docker_jobspec(self.name,
           'tools/dockerfile/grpc_artifact_python_manylinux_%s' % self.arch,
-          'tools/run_tests/build_artifact_python.sh',
+          'tools/run_tests/artifacts/build_artifact_python.sh',
           environ=environ,
           timeout_seconds=60*60)
     elif self.platform == 'windows':
@@ -125,7 +126,7 @@ class PythonArtifact:
       # seed.  We create a random temp-dir here
       dir = ''.join(random.choice(string.ascii_uppercase) for _ in range(10))
       return create_jobspec(self.name,
-                            ['tools\\run_tests\\build_artifact_python.bat',
+                            ['tools\\run_tests\\artifacts\\build_artifact_python.bat',
                              self.py_version,
                              '32' if self.arch == 'x86' else '64',
                              dir
@@ -136,7 +137,7 @@ class PythonArtifact:
       environ['PYTHON'] = self.py_version
       environ['SKIP_PIP_INSTALL'] = 'TRUE'
       return create_jobspec(self.name,
-                            ['tools/run_tests/build_artifact_python.sh'],
+                            ['tools/run_tests/artifacts/build_artifact_python.sh'],
                             environ=environ)
 
   def __str__(self):
@@ -165,11 +166,11 @@ class RubyArtifact:
           environ['SETARCH_CMD'] = 'linux32'
         return create_docker_jobspec(self.name,
             'tools/dockerfile/grpc_artifact_linux_%s' % self.arch,
-            'tools/run_tests/build_artifact_ruby.sh',
+            'tools/run_tests/artifacts/build_artifact_ruby.sh',
             environ=environ)
       else:
         return create_jobspec(self.name,
-                              ['tools/run_tests/build_artifact_ruby.sh'])
+                              ['tools/run_tests/artifacts/build_artifact_ruby.sh'])
 
 
 class CSharpExtArtifact:
@@ -184,7 +185,7 @@ class CSharpExtArtifact:
   def pre_build_jobspecs(self):
     if self.platform == 'windows':
       return [create_jobspec('prebuild_%s' % self.name,
-                             ['tools\\run_tests\\pre_build_c.bat'],
+                             ['tools\\run_tests\\helper_scripts\\pre_build_c.bat'],
                              shell=True,
                              flake_retries=5,
                              timeout_retries=2)]
@@ -195,7 +196,7 @@ class CSharpExtArtifact:
     if self.platform == 'windows':
       msbuild_platform = 'Win32' if self.arch == 'x86' else self.arch
       return create_jobspec(self.name,
-                            ['tools\\run_tests\\build_artifact_csharp.bat',
+                            ['tools\\run_tests\\artifacts\\build_artifact_csharp.bat',
                              'vsprojects\\grpc_csharp_ext.sln',
                              '/p:Configuration=Release',
                              '/p:PlatformToolset=v120',
@@ -210,14 +211,14 @@ class CSharpExtArtifact:
       if self.platform == 'linux':
         return create_docker_jobspec(self.name,
             'tools/dockerfile/grpc_artifact_linux_%s' % self.arch,
-            'tools/run_tests/build_artifact_csharp.sh',
+            'tools/run_tests/artifacts/build_artifact_csharp.sh',
             environ=environ)
       else:
         archflag = _ARCH_FLAG_MAP[self.arch]
         environ['CFLAGS'] += ' %s %s' % (archflag, _MACOS_COMPAT_FLAG)
         environ['LDFLAGS'] += ' %s' % archflag
         return create_jobspec(self.name,
-                              ['tools/run_tests/build_artifact_csharp.sh'],
+                              ['tools/run_tests/artifacts/build_artifact_csharp.sh'],
                               environ=environ)
 
   def __str__(self):
@@ -245,7 +246,7 @@ class NodeExtArtifact:
   def build_jobspec(self):
     if self.platform == 'windows':
       return create_jobspec(self.name,
-                            ['tools\\run_tests\\build_artifact_node.bat',
+                            ['tools\\run_tests\\artifacts\\build_artifact_node.bat',
                              self.gyp_arch],
                             shell=True)
     else:
@@ -253,10 +254,10 @@ class NodeExtArtifact:
         return create_docker_jobspec(
             self.name,
             'tools/dockerfile/grpc_artifact_linux_{}'.format(self.arch),
-            'tools/run_tests/build_artifact_node.sh {}'.format(self.gyp_arch))
+            'tools/run_tests/artifacts/build_artifact_node.sh {}'.format(self.gyp_arch))
       else:
         return create_jobspec(self.name,
-                              ['tools/run_tests/build_artifact_node.sh',
+                              ['tools/run_tests/artifacts/build_artifact_node.sh',
                                self.gyp_arch])
 
 class PHPArtifact:
@@ -276,10 +277,10 @@ class PHPArtifact:
       return create_docker_jobspec(
           self.name,
           'tools/dockerfile/grpc_artifact_linux_{}'.format(self.arch),
-          'tools/run_tests/build_artifact_php.sh')
+          'tools/run_tests/artifacts/build_artifact_php.sh')
     else:
       return create_jobspec(self.name,
-                            ['tools/run_tests/build_artifact_php.sh'])
+                            ['tools/run_tests/artifacts/build_artifact_php.sh'])
 
 class ProtocArtifact:
   """Builds protoc and protoc-plugin artifacts"""
@@ -306,18 +307,18 @@ class ProtocArtifact:
       if self.platform == 'linux':
         return create_docker_jobspec(self.name,
             'tools/dockerfile/grpc_artifact_protoc',
-            'tools/run_tests/build_artifact_protoc.sh',
+            'tools/run_tests/artifacts/build_artifact_protoc.sh',
             environ=environ)
       else:
         environ['CXXFLAGS'] += ' -std=c++11 -stdlib=libc++ %s' % _MACOS_COMPAT_FLAG
         return create_jobspec(self.name,
-            ['tools/run_tests/build_artifact_protoc.sh'],
+            ['tools/run_tests/artifacts/build_artifact_protoc.sh'],
             environ=environ)
     else:
       generator = 'Visual Studio 12 Win64' if self.arch == 'x64' else 'Visual Studio 12' 
       vcplatform = 'x64' if self.arch == 'x64' else 'Win32'
       return create_jobspec(self.name,
-                            ['tools\\run_tests\\build_artifact_protoc.bat'],
+                            ['tools\\run_tests\\artifacts\\build_artifact_protoc.bat'],
                             environ={'generator': generator,
                                      'Platform': vcplatform})
 

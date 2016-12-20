@@ -31,12 +31,13 @@
 
 from __future__ import print_function
 
-import jobset
 import tempfile
 import time
 import uuid
 import os
 import subprocess
+
+import jobset
 
 _DEVNULL = open(os.devnull, 'w')
 

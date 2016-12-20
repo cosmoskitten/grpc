@@ -30,7 +30,12 @@
 
 """Definition of targets to build distribution packages."""
 
-import jobset
+import os.path
+import sys
+
+sys.path.insert(0, os.path.abspath('..'))
+import python_utils.jobset as jobset
+
 
 def create_docker_jobspec(name, dockerfile_dir, shell_command, environ={},
                    flake_retries=0, timeout_retries=0):
@@ -114,7 +119,7 @@ class NodePackage:
     return create_docker_jobspec(
         self.name,
         'tools/dockerfile/grpc_artifact_linux_x64',
-        'tools/run_tests/build_package_node.sh')
+        'tools/run_tests/artifacts/build_package_node.sh')
 
 
 class RubyPackage:
@@ -131,7 +136,7 @@ class RubyPackage:
     return create_docker_jobspec(
         self.name,
         'tools/dockerfile/grpc_artifact_linux_x64',
-        'tools/run_tests/build_package_ruby.sh')
+        'tools/run_tests/artifacts/build_package_ruby.sh')
 
 
 class PythonPackage:
@@ -148,7 +153,7 @@ class PythonPackage:
     return create_docker_jobspec(
         self.name,
         'tools/dockerfile/grpc_artifact_linux_x64',
-        'tools/run_tests/build_package_python.sh')
+        'tools/run_tests/artifacts/build_package_python.sh')
 
 
 class PHPPackage:
@@ -165,7 +170,7 @@ class PHPPackage:
     return create_docker_jobspec(
         self.name,
         'tools/dockerfile/grpc_artifact_linux_x64',
-        'tools/run_tests/build_package_php.sh')
+        'tools/run_tests/artifacts/build_package_php.sh')
 
 
 def targets():
