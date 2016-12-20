@@ -116,7 +116,7 @@ class Config(object):
 def get_c_tests(travis, test_lang) :
   out = []
   platforms_str = 'ci_platforms' if travis else 'platforms'
-  with open('tools/run_tests/tests.json') as f:
+  with open('tools/run_tests/generated/tests.json') as f:
     js = json.load(f)
     return [tgt
             for tgt in js
@@ -898,7 +898,7 @@ class NodeExpressLanguage(object):
     return 'node_express'
 
 # different configurations we can run under
-with open('tools/run_tests/configs.json') as f:
+with open('tools/run_tests/generated/configs.json') as f:
   _CONFIGS = dict((cfg['config'], Config(**cfg)) for cfg in ast.literal_eval(f.read()))
 
 
