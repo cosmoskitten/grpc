@@ -263,6 +263,10 @@ std::unique_ptr<ScenarioResult> RunScenario(
   };
   std::vector<ServerData> servers(num_servers);
   std::unordered_map<string, std::deque<int>> hosts_cores;
+
+  if (configure_core_lists) {
+    hosts_cores = get_hosts_and_cores(workers);
+  }
   for (size_t i = 0; i < num_servers; i++) {
     gpr_log(GPR_INFO, "Starting server on %s (worker #%" PRIuPTR ")",
             workers[i].c_str(), i);
@@ -274,9 +278,6 @@ std::unique_ptr<ScenarioResult> RunScenario(
     int client_core_limit = initial_client_config.core_limit();
 
     if (configure_core_lists) {
-      if (i == 0) {
-        hosts_cores = get_hosts_and_cores(workers);
-      }
       string host_str(get_host(workers[i]));
       if (server_core_limit == 0 && client_core_limit > 0) {
         // In this case, limit the server cores if it matches the
